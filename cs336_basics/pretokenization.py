@@ -36,7 +36,7 @@ def _find_chunk_boundaries(
     chunk_boundaries = [i * chunk_size for i in range(desired_num_chunks + 1)]
     chunk_boundaries[-1] = file_size
 
-    mini_chunk_size = 4096  # Read ahead by 4k bytes at a time
+    mini_chunk_size = mmap.PAGESIZE  # Read ahead by 16k bytes at a time - Apple silicon memory page size
 
     for bi in range(1, len(chunk_boundaries) - 1):
         initial_position = chunk_boundaries[bi]
@@ -74,7 +74,7 @@ def _pretokenize_chunk(start_idx: int, end_idx: int, path: str, split_special_to
     frequencies: Counter[tuple[bytes, ...], int] = Counter({})
     split_pattern = re.compile(re.escape(split_special_token))
     counter: int = 0
-    page_size: int = mmap.ALLOCATIONGRANULARITY
+    page_size: int = mmap.ALLOCATIONGRANULARITY # Apple silicon memory allocation size
     diff_to_full_page_size: int = start_idx % page_size
     full_page_start_in_file: int = start_idx - diff_to_full_page_size
     start_in_mm: int = diff_to_full_page_size
