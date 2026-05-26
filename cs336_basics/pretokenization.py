@@ -1,14 +1,16 @@
+import cProfile
 import mmap
 import os
-import regex as re
-from typing import BinaryIO, Optional
-from multiprocessing import Pool
-from functools import partial
-from collections.abc import Iterator
+import pstats
 import time
-import cProfile, pstats
 from collections import Counter
+from collections.abc import Iterator
 from functools import lru_cache
+from functools import partial
+from multiprocessing import Pool
+from typing import BinaryIO, Optional
+
+import regex as re
 
 PAT = re.compile(rb"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
 
@@ -70,10 +72,9 @@ def _build_tuple_bytes(word_bytes: bytes) -> tuple[bytes, ...]:
 
 
 def _pretokenize_chunk(start_idx: int, end_idx: int, path: str, split_special_token: bytes) -> Counter[
-    tuple[bytes, ...], int]:
-    frequencies: Counter[tuple[bytes, ...], int] = Counter({})
+    tuple[bytes, ...]]:
+    frequencies: Counter[tuple[bytes, ...]] = Counter({})
     split_pattern = re.compile(re.escape(split_special_token))
-    counter: int = 0
     page_size: int = mmap.ALLOCATIONGRANULARITY # Apple silicon memory allocation size
     diff_to_full_page_size: int = start_idx % page_size
     full_page_start_in_file: int = start_idx - diff_to_full_page_size
@@ -82,25 +83,25 @@ def _pretokenize_chunk(start_idx: int, end_idx: int, path: str, split_special_to
     with open(path, "rb") as f:
         with mmap.mmap(f.fileno(), pages_length, access=mmap.ACCESS_READ, offset=full_page_start_in_file) as mm:
             for match in split_pattern.finditer(mm, start_in_mm):
-                chunk = mm[start_in_mm: match.start()].strip()
+                chunk = mm[start_in_mm: match.start()]
                 frequencies.update(_calculate_pretokens(chunk))
                 start_in_mm = match.end()
-            tail = mm[start_in_mm:].strip()
-            if tail.strip():
+            tail = mm[start_in_mm:]
+            if tail:
                 frequencies.update(_calculate_pretokens(tail))
     return frequencies
 
 
-def _merge_frequencies(dict1: Counter[tuple[bytes, ...], int], dict2: Counter[tuple[bytes, ...], int]) -> Counter[
-    tuple[bytes, ...], int]:
+def _merge_frequencies(dict1: Counter[tuple[bytes, ...]], dict2: Counter[tuple[bytes, ...]]) -> Counter[
+    tuple[bytes, ...]]:
     dict1.update(dict2)
     return dict1
 
 
-def pretokenize(path: str, num_processes: Optional[int] = None, split_special_token: bytes = b"<|endoftext|>") -> dict[
-    tuple[bytes, ...], int]:
+def pretokenize(path: str, num_processes: Optional[int] = None, split_special_token: bytes = b"<|endoftext|>") -> \
+Counter[tuple[bytes, ...]]:
     num_processes = num_processes or os.cpu_count()
-    frequencies: Counter[tuple[bytes, ...], int] = Counter({})
+    frequencies: Counter[tuple[bytes, ...]] = Counter({})
     with open(path, "rb") as f:
         t0 = time.perf_counter()
         boundaries: list[int] = _find_chunk_boundaries(f, num_processes, split_special_token)
@@ -109,7 +110,7 @@ def pretokenize(path: str, num_processes: Optional[int] = None, split_special_to
         chunk_indices: Iterator[tuple[int, int]] = zip(boundaries[:-1], boundaries[1:])
         _pretokenize_partial = partial(_pretokenize_chunk, path=path, split_special_token=split_special_token)
         with Pool(num_processes) as p:
-            chunk_frequencies_list: list[dict[tuple[bytes, ...], int]] = p.starmap(_pretokenize_partial, chunk_indices)
+            chunk_frequencies_list: list[Counter[tuple[bytes, ...]]] = p.starmap(_pretokenize_partial, chunk_indices)
         t2 = time.perf_counter()
         print(f"pretokenize (parallel): {t2 - t1:.2f}s")
         for chunk_frequencies in chunk_frequencies_list:
