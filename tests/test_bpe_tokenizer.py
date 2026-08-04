@@ -2,7 +2,7 @@ from collections import Counter
 
 import pytest
 
-from bpe_tokenizer import _merge, train
+from cs336_basics.bpe_tokenizer import _merge, train
 
 testdata = [
     (Counter({(b'l', b'o', b'w'): 5}), (b'l', b'o'), Counter({(b'lo', b'w'): 5})),
@@ -31,7 +31,7 @@ def test_train_low_lower():
         expected_vocab[1 + 256 + i] = v.encode('utf-8')
     expected_merges = [(b's', b't'), (b'e', b'st'), (b'o', b'w'), (b'l', b'ow'), (b'w', b'est'), (b'n', b'e')]
     # when
-    actual_vocab, actual_merges = train("../data/lowlower.txt", 1 + 256 + 6, ["<|endoftext|>"])
+    actual_vocab, actual_merges = train("data/lowlower.txt", 1 + 256 + 6, ["<|endoftext|>"])
     # then
     assert actual_merges == expected_merges
     assert actual_vocab == expected_vocab

@@ -1,5 +1,3 @@
-
-
 def execute():
     string: str = "hello"
     print(list(string.encode("utf-8")))
@@ -19,7 +17,6 @@ def execute():
     print(len(utf8_encoded))
 
     print(utf8_encoded.decode("utf-8"))
-
 
 
 if __name__ == "__main__":

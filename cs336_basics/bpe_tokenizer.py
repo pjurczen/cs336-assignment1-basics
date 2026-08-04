@@ -1,7 +1,7 @@
 import time
 from collections import Counter
 
-from pretokenization import pretokenize
+from cs336_basics.pretokenization import pretokenize
 
 
 def train(input_path: str, vocab_size: int, special_tokens: list[str]) -> tuple[
