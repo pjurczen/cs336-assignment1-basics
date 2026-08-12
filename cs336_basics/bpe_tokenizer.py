@@ -68,27 +68,23 @@ def _count_byte_pairs(pretoken: tuple[bytes, ...]) -> Counter[tuple[bytes, bytes
     return counts
 
 
-def _merge_pretoken(pair: tuple[bytes, bytes], pretoken: tuple[bytes, ...]) -> tuple[
-    tuple[bytes, ...], Counter[tuple[bytes, bytes]]]:
+def _merge_pretoken(pair: tuple[bytes, bytes], pretoken: tuple[bytes, ...]) -> tuple[tuple[bytes, ...], Counter[tuple[bytes, bytes]]]:
     new_pretoken: tuple[bytes, ...] = ()
-    count_deltas: Counter[tuple[bytes, bytes]] = Counter({})
     i: int = 0
     pretoken_len: int = len(pretoken)
     while i < pretoken_len:
         if i < pretoken_len - 1 and (pretoken[i], pretoken[i + 1]) == pair:
             new_token = pretoken[i] + pretoken[i + 1]
             new_pretoken += (new_token,)
-            count_deltas[(pretoken[i], pretoken[i + 1])] -= 1
-            if i < pretoken_len - 2:
-                count_deltas[(pretoken[i + 1], pretoken[i + 2])] -= 1
-                count_deltas[(new_token, pretoken[i + 2])] += 1
-            if i > 0:
-                count_deltas[(pretoken[i - 1], pretoken[i])] -= 1
-                count_deltas[(pretoken[i - 1], new_token)] += 1
             i += 2
         else:
             new_pretoken += (pretoken[i],)
             i += 1
+    old_counts: Counter[tuple[bytes, bytes]] = _count_byte_pairs(pretoken)
+    new_counts: Counter[tuple[bytes, bytes]] = _count_byte_pairs(new_pretoken)
+    new_counts.subtract(old_counts)
+    count_deltas: Counter[tuple[bytes, bytes]] = Counter(
+        {pair: count for pair, count in new_counts.items() if count != 0})
     return new_pretoken, count_deltas
 
 
