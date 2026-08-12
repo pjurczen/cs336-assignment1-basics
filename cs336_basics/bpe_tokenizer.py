@@ -20,7 +20,7 @@ def train(input_path: str, vocab_size: int, special_tokens: list[str]) -> tuple[
     t0 = time.perf_counter()
     for i in range(num_merges):
         counts: Counter[tuple[bytes, bytes]] = _count_adjacent_pairs(pretoken_vocab)
-        pair: tuple[bytes, bytes] = max(counts, key=lambda p: (counts[p], p))
+        pair: tuple[bytes, bytes] = max(counts.items(), key=lambda x: (x[1], x[0]))[0]
         merges.append(pair)
         new_index: int = special_tokens_count + 256 + i
         merged_pair: bytes = vocab[indices[pair[0]]] + vocab[indices[pair[1]]]
@@ -34,6 +34,7 @@ def train(input_path: str, vocab_size: int, special_tokens: list[str]) -> tuple[
 
 def _merge(pretoken_vocab: Counter[tuple[bytes, ...]], pair: tuple[bytes, bytes]) -> Counter[tuple[bytes, ...]]:
     result_pretoken_vocab: Counter[tuple[bytes, ...]] = Counter({})
+    merges_count = 0
     for pretoken, count in pretoken_vocab.items():
         new_pretoken_list: list[bytes] = []
         i: int = 0
@@ -42,10 +43,13 @@ def _merge(pretoken_vocab: Counter[tuple[bytes, ...]], pair: tuple[bytes, bytes]
             if i < pretoken_len - 1 and (pretoken[i], pretoken[i + 1]) == pair:
                 new_pretoken_list.append(pretoken[i] + pretoken[i + 1])
                 i += 2
+                merges_count += 1
             else:
                 new_pretoken_list.append(pretoken[i])
                 i += 1
         result_pretoken_vocab[tuple(new_pretoken_list)] += count
+    print(f"merges count: {merges_count}")
+    print(f"pretoken vocab size: {len(result_pretoken_vocab)}")
     return result_pretoken_vocab
 
 
@@ -55,6 +59,37 @@ def _count_adjacent_pairs(pretoken_vocab: Counter[tuple[bytes, ...]]) -> Counter
         for byte_pair in zip(pretoken[:-1], pretoken[1:]):
             counts[byte_pair] += count
     return counts
+
+
+def _count_byte_pairs(pretoken: tuple[bytes, ...]) -> Counter[tuple[bytes, bytes]]:
+    counts: Counter[tuple[bytes, bytes]] = Counter({})
+    for byte_pair in zip(pretoken[:-1], pretoken[1:]):
+        counts[byte_pair] += 1
+    return counts
+
+
+def _merge_pretoken(pair: tuple[bytes, bytes], pretoken: tuple[bytes, ...]) -> tuple[
+    tuple[bytes, ...], Counter[tuple[bytes, bytes]]]:
+    new_pretoken: tuple[bytes, ...] = ()
+    count_deltas: Counter[tuple[bytes, bytes]] = Counter({})
+    i: int = 0
+    pretoken_len: int = len(pretoken)
+    while i < pretoken_len:
+        if i < pretoken_len - 1 and (pretoken[i], pretoken[i + 1]) == pair:
+            new_token = pretoken[i] + pretoken[i + 1]
+            new_pretoken += (new_token,)
+            count_deltas[(pretoken[i], pretoken[i + 1])] -= 1
+            if i < pretoken_len - 2:
+                count_deltas[(pretoken[i + 1], pretoken[i + 2])] -= 1
+                count_deltas[(new_token, pretoken[i + 2])] += 1
+            if i > 0:
+                count_deltas[(pretoken[i - 1], pretoken[i])] -= 1
+                count_deltas[(pretoken[i - 1], new_token)] += 1
+            i += 2
+        else:
+            new_pretoken += (pretoken[i],)
+            i += 1
+    return new_pretoken, count_deltas
 
 
 if __name__ == "__main__":

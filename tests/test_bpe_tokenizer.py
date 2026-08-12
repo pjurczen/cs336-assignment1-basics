@@ -2,7 +2,7 @@ from collections import Counter
 
 import pytest
 
-from cs336_basics.bpe_tokenizer import _merge, train
+from cs336_basics.bpe_tokenizer import _merge, train, _merge_pretoken
 
 testdata = [
     (Counter({(b'l', b'o', b'w'): 5}), (b'l', b'o'), Counter({(b'lo', b'w'): 5})),
@@ -35,3 +35,117 @@ def test_train_low_lower():
     # then
     assert actual_merges == expected_merges
     assert actual_vocab == expected_vocab
+
+
+def test_merge_pretoken_in_the_middle():
+    pair: tuple[bytes, bytes] = (b'a', b'a')
+    pretoken: tuple[bytes, ...] = (b'b', b'a', b'a', b'l')
+    new_pretoken, count_deltas = _merge_pretoken(pair, pretoken)
+    assert new_pretoken == (b'b', b'aa', b'l')
+    # deltas
+    assert len(count_deltas) == 5
+    # removed
+    assert count_deltas[(b'b', b'a')] == -1
+    assert count_deltas[(b'a', b'a')] == -1
+    assert count_deltas[(b'a', b'l')] == -1
+    # added
+    assert count_deltas[(b'b', b'aa')] == 1
+    assert count_deltas[(b'aa', b'l')] == 1
+
+
+def test_merge_pretoken_at_the_start():
+    pair: tuple[bytes, bytes] = (b'b', b'a')
+    pretoken: tuple[bytes, ...] = (b'b', b'a', b'a', b'l')
+    new_pretoken, count_deltas = _merge_pretoken(pair, pretoken)
+    assert new_pretoken == (b'ba', b'a', b'l')
+    # deltas
+    assert len(count_deltas) == 3
+    # removed
+    assert count_deltas[(b'b', b'a')] == -1
+    assert count_deltas[(b'a', b'a')] == -1
+    # added
+    assert count_deltas[(b'ba', b'a')] == 1
+
+
+def test_merge_pretoken_at_the_end():
+    pair: tuple[bytes, bytes] = (b'a', b'l')
+    pretoken: tuple[bytes, ...] = (b'b', b'a', b'a', b'l')
+    new_pretoken, count_deltas = _merge_pretoken(pair, pretoken)
+    assert new_pretoken == (b'b', b'a', b'al')
+    # deltas
+    assert len(count_deltas) == 3
+    # removed
+    assert count_deltas[(b'a', b'l')] == -1
+    assert count_deltas[(b'a', b'a')] == -1
+    # added
+    assert count_deltas[(b'a', b'al')] == 1
+
+
+def test_merge_pretoken_overlapping():
+    pair: tuple[bytes, bytes] = (b'a', b'a')
+    pretoken: tuple[bytes, ...] = (b'b', b'a', b'a', b'a', b'l')
+    new_pretoken, count_deltas = _merge_pretoken(pair, pretoken)
+    assert new_pretoken == (b'b', b'aa', b'a', b'l')
+    # deltas
+    assert len(count_deltas) == 4
+    # removed
+    assert count_deltas[(b'a', b'a')] == -2
+    assert count_deltas[(b'b', b'a')] == -1
+    # added
+    assert count_deltas[(b'b', b'aa')] == 1
+    assert count_deltas[(b'aa', b'a')] == 1
+
+
+def test_merge_pretoken_overlapping_double():
+    pair: tuple[bytes, bytes] = (b'a', b'a')
+    pretoken: tuple[bytes, ...] = (b'b', b'a', b'a', b'a', b'a', b'l')
+    new_pretoken, count_deltas = _merge_pretoken(pair, pretoken)
+    assert new_pretoken == (b'b', b'aa', b'aa', b'l')
+    # deltas
+    assert len(count_deltas) == 6
+    # removed
+    assert count_deltas[(b'a', b'a')] == -3
+    assert count_deltas[(b'b', b'a')] == -1
+    assert count_deltas[(b'a', b'l')] == -1
+    # added
+    assert count_deltas[(b'b', b'aa')] == 1
+    assert count_deltas[(b'aa', b'aa')] == 1
+    assert count_deltas[(b'aa', b'l')] == 1
+
+
+def test_merge_pretoken_length_2():
+    pair: tuple[bytes, bytes] = (b'b', b'a')
+    pretoken: tuple[bytes, ...] = (b'b', b'a')
+    new_pretoken, count_deltas = _merge_pretoken(pair, pretoken)
+    assert new_pretoken == (b'ba',)
+    # deltas
+    assert len(count_deltas) == 1
+    # removed
+    assert count_deltas[(b'b', b'a')] == -1
+
+
+def test_merge_pretoken_absent():
+    pair: tuple[bytes, bytes] = (b'c', b'a')
+    pretoken: tuple[bytes, ...] = (b'b', b'a', b'a', b'l')
+    new_pretoken, count_deltas = _merge_pretoken(pair, pretoken)
+    assert new_pretoken == (b'b', b'a', b'a', b'l')
+    # deltas
+    assert len(count_deltas) == 0
+
+
+def test_merge_pretoken_2_occurences():
+    pair: tuple[bytes, bytes] = (b'a', b'l')
+    pretoken: tuple[bytes, ...] = (b'b', b'a', b'l', b'c', b'a', b'l')
+    new_pretoken, count_deltas = _merge_pretoken(pair, pretoken)
+    assert new_pretoken == (b'b', b'al', b'c', b'al')
+    # deltas
+    assert len(count_deltas) == 7
+    # removed
+    assert count_deltas[(b'a', b'l')] == -2
+    assert count_deltas[(b'b', b'a')] == -1
+    assert count_deltas[(b'l', b'c')] == -1
+    assert count_deltas[(b'c', b'a')] == -1
+    # added
+    assert count_deltas[(b'b', b'al')] == 1
+    assert count_deltas[(b'al', b'c')] == 1
+    assert count_deltas[(b'c', b'al')] == 1
