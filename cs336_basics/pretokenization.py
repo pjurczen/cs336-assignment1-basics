@@ -11,6 +11,7 @@ from multiprocessing import Pool
 from typing import BinaryIO, Optional
 
 import regex as re
+from line_profiler import profile
 
 PAT = re.compile(rb"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
 
@@ -71,6 +72,7 @@ def _build_tuple_bytes(word_bytes: bytes) -> tuple[bytes, ...]:
     return tuple(word_bytes[i:i + 1] for i in range(len(word_bytes)))
 
 
+@profile
 def _pretokenize_chunk(start_idx: int, end_idx: int, path: str, split_special_token: bytes) -> Counter[
     tuple[bytes, ...]]:
     frequencies: Counter[tuple[bytes, ...]] = Counter({})
@@ -84,11 +86,13 @@ def _pretokenize_chunk(start_idx: int, end_idx: int, path: str, split_special_to
         with mmap.mmap(f.fileno(), pages_length, access=mmap.ACCESS_READ, offset=full_page_start_in_file) as mm:
             for match in split_pattern.finditer(mm, start_in_mm):
                 chunk = mm[start_in_mm: match.start()]
-                frequencies.update(_calculate_pretokens(chunk))
+                pretokens = _calculate_pretokens(chunk)
+                frequencies.update(pretokens)
                 start_in_mm = match.end()
             tail = mm[start_in_mm:]
             if tail:
-                frequencies.update(_calculate_pretokens(tail))
+                pretokens = _calculate_pretokens(tail)
+                frequencies.update(pretokens)
     return frequencies
 
 
@@ -130,14 +134,14 @@ def profile_pretokenization(path: str):
 
 
 if __name__ == "__main__":
-    profile_pretokenization("../data/TinyStoriesV2-GPT4-valid.txt")
-    # result = pretokenize("../data/TinyStoriesV2-GPT4-valid.txt")
-    # sorted_items = sorted(result.items(), key=lambda kv: kv[1], reverse=True)
-    # print("=== TOP 10 ===\n")
-    # for k, c in sorted_items[:10]:
-    #     print(f"{c:>8}  {k!r}\n")
-    # print("\n=== BOTTOM 10 ===\n")
-    # for k, c in sorted_items[-10:]:
-    #     print(f"{c:>8}  {k!r}\n")
-    # print(f"\nTotal unique pre-tokens: {len(result)}\n")
-    # print(f"Total token count: {sum(result.values())}\n")
+    # profile_pretokenization("../data/TinyStoriesV2-GPT4-valid.txt")
+    result = pretokenize("../data/TinyStoriesV2-GPT4-train.txt")
+    sorted_items = sorted(result.items(), key=lambda kv: kv[1], reverse=True)
+    print("=== TOP 10 ===\n")
+    for k, c in sorted_items[:10]:
+        print(f"{c:>8}  {k!r}\n")
+    print("\n=== BOTTOM 10 ===\n")
+    for k, c in sorted_items[-10:]:
+        print(f"{c:>8}  {k!r}\n")
+    print(f"\nTotal unique pre-tokens: {len(result)}\n")
+    print(f"Total token count: {sum(result.values())}\n")

@@ -49,6 +49,7 @@ line-length = 120
 dev = [
     "ipykernel>=7.2.0",
     "jupyterlab>=4.5.7",
+    "line-profiler>=5.0.2",
 ]
 
 [tool.ruff.lint]

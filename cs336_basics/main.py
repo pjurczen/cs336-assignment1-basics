@@ -18,6 +18,8 @@ def execute():
 
     print(utf8_encoded.decode("utf-8"))
 
+    print(chr(0))
+    print("this is a test" + chr(0) + "string")
 
 if __name__ == "__main__":
     execute()
