@@ -33,23 +33,24 @@ class BpeState:
 
     def merge(self, pair: tuple[bytes, bytes]) -> None:
         # iterate over pretokens that contain this pair only
-        if pair in self.pairs_to_pretokens_index:
-            for pretoken in self.pairs_to_pretokens_index[pair].copy():
-                count: int = self.pretoken_vocab[pretoken]
-                new_pretoken, count_deltas, old_counts, new_counts = self._merge_pretoken(pair, pretoken)
-                for merged_pair, delta in count_deltas.items():
-                    self.counts[merged_pair] += count * delta
-                    if self.counts[merged_pair] == 0:
-                        del self.counts[merged_pair]
-                for old_pair in old_counts.keys():
-                    if old_pair in self.pairs_to_pretokens_index and pretoken in self.pairs_to_pretokens_index[old_pair]:
-                        self.pairs_to_pretokens_index[old_pair].remove(pretoken)
-                        if not self.pairs_to_pretokens_index[old_pair]:
-                            del self.pairs_to_pretokens_index[old_pair]
-                for new_pair, new_pair_count in new_counts.items():
-                    self.pairs_to_pretokens_index[new_pair].add(new_pretoken)
-                del self.pretoken_vocab[pretoken]
-                self.pretoken_vocab[new_pretoken] += count
+        if pair not in self.pairs_to_pretokens_index:
+            return
+        for pretoken in self.pairs_to_pretokens_index[pair].copy():
+            count: int = self.pretoken_vocab[pretoken]
+            new_pretoken, count_deltas, old_counts, new_counts = self._merge_pretoken(pair, pretoken)
+            for merged_pair, delta in count_deltas.items():
+                self.counts[merged_pair] += count * delta
+                if self.counts[merged_pair] == 0:
+                    del self.counts[merged_pair]
+            for old_pair in old_counts.keys():
+                if old_pair in self.pairs_to_pretokens_index and pretoken in self.pairs_to_pretokens_index[old_pair]:
+                    self.pairs_to_pretokens_index[old_pair].remove(pretoken)
+                    if not self.pairs_to_pretokens_index[old_pair]:
+                        del self.pairs_to_pretokens_index[old_pair]
+            for new_pair, new_pair_count in new_counts.items():
+                self.pairs_to_pretokens_index[new_pair].add(new_pretoken)
+            del self.pretoken_vocab[pretoken]
+            self.pretoken_vocab[new_pretoken] += count
 
     @classmethod
     def _count_byte_pairs(cls, pretoken: tuple[bytes, ...]) -> Counter[tuple[bytes, bytes]]:
