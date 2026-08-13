@@ -37,7 +37,8 @@ class BpeState:
             return
         for pretoken in self.pairs_to_pretokens_index[pair].copy():
             count: int = self.pretoken_vocab[pretoken]
-            new_pretoken, count_deltas, old_counts, new_counts = self._merge_pretoken(pair, pretoken)
+            new_pretoken, old_counts, new_counts = self._merge_pretoken(pair, pretoken)
+            count_deltas: Counter[tuple[bytes, bytes]] = self.get_count_deltas(old_counts, new_counts)
             for merged_pair, delta in count_deltas.items():
                 self.counts[merged_pair] += count * delta
                 if self.counts[merged_pair] == 0:
@@ -61,7 +62,7 @@ class BpeState:
 
     @classmethod
     def _merge_pretoken(cls, pair: tuple[bytes, bytes], pretoken: tuple[bytes, ...]) -> tuple[
-        tuple[bytes, ...], Counter[tuple[bytes, bytes]], Counter[tuple[bytes, bytes]], Counter[tuple[bytes, bytes]]]:
+        tuple[bytes, ...], Counter[tuple[bytes, bytes]], Counter[tuple[bytes, bytes]]]:
         new_pretoken: tuple[bytes, ...] = ()
         i: int = 0
         pretoken_len: int = len(pretoken)
@@ -75,8 +76,10 @@ class BpeState:
                 i += 1
         old_counts: Counter[tuple[bytes, bytes]] = cls._count_byte_pairs(pretoken)
         new_counts: Counter[tuple[bytes, bytes]] = cls._count_byte_pairs(new_pretoken)
-        diff_counts: Counter[tuple[bytes, bytes]] = new_counts.copy()
-        diff_counts.subtract(old_counts)
-        count_deltas: Counter[tuple[bytes, bytes]] = Counter(
-            {pair: count for pair, count in diff_counts.items() if count != 0})
-        return new_pretoken, count_deltas, old_counts, new_counts
+        return new_pretoken, old_counts, new_counts
+
+    @classmethod
+    def get_count_deltas(cls, old_counts: Counter[tuple[bytes, bytes]], new_counts: Counter[tuple[bytes, bytes]]) -> Counter[tuple[bytes, bytes]]:
+        count_deltas: Counter[tuple[bytes, bytes]] = new_counts.copy()
+        count_deltas.subtract(old_counts)
+        return Counter({pair: count for pair, count in count_deltas.items() if count != 0})
