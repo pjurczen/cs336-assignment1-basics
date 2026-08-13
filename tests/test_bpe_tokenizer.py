@@ -2,7 +2,8 @@ from collections import Counter
 
 import pytest
 
-from cs336_basics.bpe_tokenizer import _merge, train, _merge_pretoken
+from cs336_basics.bpe_state import BpeState
+from cs336_basics.bpe_tokenizer import train
 
 testdata = [
     (Counter({(b'l', b'o', b'w'): 5}), (b'l', b'o'), Counter({(b'lo', b'w'): 5})),
@@ -18,8 +19,9 @@ testdata = [
 @pytest.mark.parametrize("pretoken_vocab,pair,expected_output", testdata)
 def test_merge(pretoken_vocab: Counter[tuple[bytes, ...]], pair: tuple[bytes, bytes],
                expected_output: Counter[tuple[bytes, ...]]):
-    actual_output = _merge(pretoken_vocab, pair)
-    assert expected_output == actual_output
+    bpe_state: BpeState = BpeState(pretoken_vocab)
+    bpe_state.merge(pair)
+    assert expected_output == bpe_state.pretoken_vocab
 
 
 def test_train_low_lower():
@@ -40,7 +42,7 @@ def test_train_low_lower():
 def test_merge_pretoken_in_the_middle():
     pair: tuple[bytes, bytes] = (b'a', b'a')
     pretoken: tuple[bytes, ...] = (b'b', b'a', b'a', b'l')
-    new_pretoken, count_deltas = _merge_pretoken(pair, pretoken)
+    new_pretoken, count_deltas = BpeState._merge_pretoken(pair, pretoken)
     assert new_pretoken == (b'b', b'aa', b'l')
     # deltas
     assert len(count_deltas) == 5
@@ -56,7 +58,7 @@ def test_merge_pretoken_in_the_middle():
 def test_merge_pretoken_at_the_start():
     pair: tuple[bytes, bytes] = (b'b', b'a')
     pretoken: tuple[bytes, ...] = (b'b', b'a', b'a', b'l')
-    new_pretoken, count_deltas = _merge_pretoken(pair, pretoken)
+    new_pretoken, count_deltas = BpeState._merge_pretoken(pair, pretoken)
     assert new_pretoken == (b'ba', b'a', b'l')
     # deltas
     assert len(count_deltas) == 3
@@ -70,7 +72,7 @@ def test_merge_pretoken_at_the_start():
 def test_merge_pretoken_at_the_end():
     pair: tuple[bytes, bytes] = (b'a', b'l')
     pretoken: tuple[bytes, ...] = (b'b', b'a', b'a', b'l')
-    new_pretoken, count_deltas = _merge_pretoken(pair, pretoken)
+    new_pretoken, count_deltas = BpeState._merge_pretoken(pair, pretoken)
     assert new_pretoken == (b'b', b'a', b'al')
     # deltas
     assert len(count_deltas) == 3
@@ -84,7 +86,7 @@ def test_merge_pretoken_at_the_end():
 def test_merge_pretoken_overlapping():
     pair: tuple[bytes, bytes] = (b'a', b'a')
     pretoken: tuple[bytes, ...] = (b'b', b'a', b'a', b'a', b'l')
-    new_pretoken, count_deltas = _merge_pretoken(pair, pretoken)
+    new_pretoken, count_deltas = BpeState._merge_pretoken(pair, pretoken)
     assert new_pretoken == (b'b', b'aa', b'a', b'l')
     # deltas
     assert len(count_deltas) == 4
@@ -99,7 +101,7 @@ def test_merge_pretoken_overlapping():
 def test_merge_pretoken_overlapping_double():
     pair: tuple[bytes, bytes] = (b'a', b'a')
     pretoken: tuple[bytes, ...] = (b'b', b'a', b'a', b'a', b'a', b'l')
-    new_pretoken, count_deltas = _merge_pretoken(pair, pretoken)
+    new_pretoken, count_deltas = BpeState._merge_pretoken(pair, pretoken)
     assert new_pretoken == (b'b', b'aa', b'aa', b'l')
     # deltas
     assert len(count_deltas) == 6
@@ -116,7 +118,7 @@ def test_merge_pretoken_overlapping_double():
 def test_merge_pretoken_length_2():
     pair: tuple[bytes, bytes] = (b'b', b'a')
     pretoken: tuple[bytes, ...] = (b'b', b'a')
-    new_pretoken, count_deltas = _merge_pretoken(pair, pretoken)
+    new_pretoken, count_deltas = BpeState._merge_pretoken(pair, pretoken)
     assert new_pretoken == (b'ba',)
     # deltas
     assert len(count_deltas) == 1
@@ -127,7 +129,7 @@ def test_merge_pretoken_length_2():
 def test_merge_pretoken_absent():
     pair: tuple[bytes, bytes] = (b'c', b'a')
     pretoken: tuple[bytes, ...] = (b'b', b'a', b'a', b'l')
-    new_pretoken, count_deltas = _merge_pretoken(pair, pretoken)
+    new_pretoken, count_deltas = BpeState._merge_pretoken(pair, pretoken)
     assert new_pretoken == (b'b', b'a', b'a', b'l')
     # deltas
     assert len(count_deltas) == 0
@@ -136,7 +138,7 @@ def test_merge_pretoken_absent():
 def test_merge_pretoken_2_occurences():
     pair: tuple[bytes, bytes] = (b'a', b'l')
     pretoken: tuple[bytes, ...] = (b'b', b'a', b'l', b'c', b'a', b'l')
-    new_pretoken, count_deltas = _merge_pretoken(pair, pretoken)
+    new_pretoken, count_deltas = BpeState._merge_pretoken(pair, pretoken)
     assert new_pretoken == (b'b', b'al', b'c', b'al')
     # deltas
     assert len(count_deltas) == 7
