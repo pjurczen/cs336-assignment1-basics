@@ -42,7 +42,7 @@ class BpeState:
                     if self.counts[merged_pair] == 0:
                         del self.counts[merged_pair]
                 for old_pair in old_counts.keys():
-                    if pretoken in self.pairs_to_pretokens_index[old_pair]:
+                    if old_pair in self.pairs_to_pretokens_index and pretoken in self.pairs_to_pretokens_index[old_pair]:
                         self.pairs_to_pretokens_index[old_pair].remove(pretoken)
                         if not self.pairs_to_pretokens_index[old_pair]:
                             del self.pairs_to_pretokens_index[old_pair]
