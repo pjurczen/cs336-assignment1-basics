@@ -21,5 +21,8 @@ def execute():
     print(chr(0))
     print("this is a test" + chr(0) + "string")
 
+    print("s".encode('utf-8'))
+    print(list(bytes([115])))
+
 if __name__ == "__main__":
     execute()
