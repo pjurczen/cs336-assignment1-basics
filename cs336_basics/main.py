@@ -19,6 +19,7 @@ def execute():
     print(utf8_encoded.decode("utf-8"))
 
     print(chr(0))
+    print(chr(0).__repr__())
     print("this is a test" + chr(0) + "string")
 
     print("s".encode('utf-8'))

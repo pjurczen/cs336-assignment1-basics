@@ -1,8 +1,12 @@
+import cProfile
+import json
+import pstats
 import time
 from collections import Counter
 
 from cs336_basics.bpe_state import BpeState
 from cs336_basics.pretokenization import pretokenize
+from tests.common import gpt2_bytes_to_unicode
 
 BYTES_COUNT = 256  # this is really an overkill since in UTF-8 192, 193 and >=245 bytes are not used, but we learn those if at inference time invalid input was somehow passed
 
@@ -77,6 +81,24 @@ class BpeTokenizer:
         return text
 
 
+def bytes_to_gpt2_unicode(bytes_token: bytes) -> str:
+    return ''.join([gpt2_bytes_to_unicode()[token] for token in bytes_token])
+
+
 if __name__ == "__main__":
-    BpeTokenizer().train("../data/TinyStoriesV2-GPT4-train.txt", 10000, ["<|endoftext|>"])
+    with cProfile.Profile() as pr:
+        bpe_tokenizer = BpeTokenizer()
+        bpe_tokenizer.train("data/TinyStoriesV2-GPT4-train.txt", 10000, ["<|endoftext|>"])
+        vocab: dict[str, int] = {
+            bytes_to_gpt2_unicode(bytes_item): vocab_index
+            for bytes_item, vocab_index in bpe_tokenizer.id_vocab.items()
+        }
+        with open("data/train-bpe-vocab-TinyStoriesV2-GPT4-train.json", "w", encoding="utf-8") as f:
+            json.dump(vocab, f, ensure_ascii=False, indent=4)
+        with open("data/train-bpe-merges-TinyStoriesV2-GPT4-train.txt", "w", encoding="utf-8") as f:
+            for merge in bpe_tokenizer.merges:
+                f.write(f"{bytes_to_gpt2_unicode(merge[0])} {bytes_to_gpt2_unicode(merge[1])}\n")
+        max_length_token = max(bpe_tokenizer.vocab.items(), key=lambda x: len(x[1]))
+        print(max_length_token)
+    pstats.Stats(pr).sort_stats("cumulative").print_stats(40)
     # _merge(Counter({(b'l', b'o', b'w', b'e', b'r'): 1}), (b'l', b'o'))

@@ -28,6 +28,7 @@ class BpeState:
                 i += 1
         return pairs_to_pretokens_index
 
+    # This is currently O(n) and consumes 60% of training time, alternative would be a heap with O(log n) or buckets based data structure with O(1) time complexity
     def get_highest_count_pair(self) -> tuple[bytes, bytes]:
         return max(self.counts.items(), key=lambda x: (x[1], x[0]))[0]
 
