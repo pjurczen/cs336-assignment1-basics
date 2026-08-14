@@ -30,7 +30,9 @@ class BpeState:
 
     # This is currently O(n) and consumes 60% of training time, alternative would be a heap with O(log n) or buckets based data structure with O(1) time complexity
     def get_highest_count_pair(self) -> tuple[bytes, bytes]:
-        return max(self.counts.items(), key=lambda x: (x[1], x[0]))[0]
+        max_count: int = max(self.counts.values())
+        pair = max(p for p, c in self.counts.items() if c == max_count)
+        return pair
 
     def merge(self, pair: tuple[bytes, bytes]) -> None:
         # iterate over pretokens that contain this pair only
