@@ -1,4 +1,5 @@
 from collections import Counter
+from typing import Optional
 
 
 class PretokenCounter:
@@ -20,7 +21,23 @@ class PretokenCounter:
         return PretokenCounter(counter)
 
     def add(self, pair: tuple[bytes, bytes], delta: int) -> None:
-        pass
+        old_count: int = self.counts[pair]
+        new_count: int = old_count + delta
+        if new_count == 0:
+            del self.counts[pair]
+        else:
+            self.counts[pair] += delta
+            if new_count not in self.buckets:
+                self.buckets[new_count] = set()
+            self.buckets[new_count].add(pair)
+        self.buckets[old_count].remove(pair)
+        if not self.buckets[old_count]:
+            del self.buckets[old_count]
+        if new_count > self.max_count:
+            self.max_count = new_count
 
-    def highest(self) -> tuple[bytes, bytes]:
-        pass
+    def highest(self) -> Optional[tuple[bytes, bytes]]:
+        if not self.buckets:
+            return None
+        highest_pairs: set[tuple[bytes, bytes]] = self.buckets[self.max_count]
+        return max(highest_pairs)
