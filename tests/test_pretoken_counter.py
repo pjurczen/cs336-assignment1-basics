@@ -77,3 +77,12 @@ def test_add_change_highest_pair_same_count_higher_lexicography():
     assert pretoken_counter.highest() == (b'ba', b'a')
     assert pretoken_counter.buckets == {4: {(b'b', b'a'), (b'ba', b'a')}, 2: {(b'a', b'b')}}
     assert pretoken_counter.counts == {(b'b', b'a'): 4, (b'ba', b'a'): 4, (b'a', b'b'): 2}
+
+
+def test_add_degrade_highest_pair():
+    pretoken_counter = PretokenCounter.from_counter(Counter({(b'a', b'b'): 2, (b'ba', b'a'): 3, (b'b', b'a'): 4}))
+    pretoken_counter.add((b'b', b'a'), -3)
+    assert pretoken_counter.max_count == 3
+    assert pretoken_counter.highest() == (b'ba', b'a')
+    assert pretoken_counter.buckets == {3: {(b'ba', b'a')}, 2: {(b'a', b'b')}, 1: {(b'b', b'a')}}
+    assert pretoken_counter.counts == {(b'ba', b'a'): 3, (b'a', b'b'): 2, (b'b', b'a'): 1}

@@ -36,6 +36,11 @@ class PretokenCounter:
             self.buckets[old_count].remove(pair)
             if not self.buckets[old_count]:
                 del self.buckets[old_count]
+            if old_count == self.max_count:
+                i: int = self.max_count
+                while not i in self.buckets and i > 0:
+                    i -= 1
+                self.max_count = i
         if new_count > self.max_count:
             self.max_count = new_count
 
