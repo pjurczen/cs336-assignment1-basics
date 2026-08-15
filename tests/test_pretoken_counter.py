@@ -52,6 +52,15 @@ def test_highest_multiple_entries():
     assert pair == (b'a', b'a')
 
 
+def test_add_new_pair():
+    pretoken_counter = PretokenCounter.from_counter(Counter({(b'a', b'b'): 2, (b'ba', b'a'): 2}))
+    pretoken_counter.add((b'c', b'a'), 3)
+    assert pretoken_counter.max_count == 3
+    assert pretoken_counter.highest() == (b'c', b'a')
+    assert pretoken_counter.buckets == {3: {(b'c', b'a')}, 2: {(b'a', b'b'), (b'ba', b'a')}}
+    assert pretoken_counter.counts == {(b'c', b'a'): 3, (b'a', b'b'): 2, (b'ba', b'a'): 2}
+
+
 def test_add_change_highest_pair():
     pretoken_counter = PretokenCounter.from_counter(Counter({(b'a', b'b'): 2, (b'ba', b'a'): 2}))
     pretoken_counter.add((b'a', b'b'), 1)

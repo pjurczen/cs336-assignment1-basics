@@ -21,6 +21,8 @@ class PretokenCounter:
         return PretokenCounter(counter)
 
     def add(self, pair: tuple[bytes, bytes], delta: int) -> None:
+        if pair not in self.counts:
+            self.counts[pair] = 0
         old_count: int = self.counts[pair]
         new_count: int = old_count + delta
         if new_count == 0:
@@ -30,9 +32,10 @@ class PretokenCounter:
             if new_count not in self.buckets:
                 self.buckets[new_count] = set()
             self.buckets[new_count].add(pair)
-        self.buckets[old_count].remove(pair)
-        if not self.buckets[old_count]:
-            del self.buckets[old_count]
+        if old_count != 0:
+            self.buckets[old_count].remove(pair)
+            if not self.buckets[old_count]:
+                del self.buckets[old_count]
         if new_count > self.max_count:
             self.max_count = new_count
 
