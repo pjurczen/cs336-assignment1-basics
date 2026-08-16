@@ -1,5 +1,6 @@
-from collections import Counter
 from typing import Optional
+
+from line_profiler import profile
 
 
 class PretokenCounter:
@@ -7,7 +8,7 @@ class PretokenCounter:
     buckets: dict[int, set[tuple[bytes, bytes]]]
     max_count: int
 
-    def __init__(self, counter: Counter[tuple[bytes, bytes]]):
+    def __init__(self, counter: dict[tuple[bytes, bytes], int]):
         self.counts = dict(counter.items())
         self.buckets = {}
         for pair, count in self.counts.items():
@@ -17,9 +18,10 @@ class PretokenCounter:
         self.max_count = max(self.counts.values()) if self.counts.values() else 0
 
     @classmethod
-    def from_counter(cls, counter: Counter[tuple[bytes, bytes]]) -> "PretokenCounter":
+    def from_counter(cls, counter: dict[tuple[bytes, bytes], int]) -> "PretokenCounter":
         return PretokenCounter(counter)
 
+    @profile
     def add(self, pair: tuple[bytes, bytes], delta: int) -> None:
         if pair not in self.counts:
             self.counts[pair] = 0
@@ -37,13 +39,11 @@ class PretokenCounter:
             if not self.buckets[old_count]:
                 del self.buckets[old_count]
             if old_count == self.max_count:
-                i: int = self.max_count
-                while not i in self.buckets and i > 0:
-                    i -= 1
-                self.max_count = i
+                self.max_count = max(self.buckets)
         if new_count > self.max_count:
             self.max_count = new_count
 
+    @profile
     def highest(self) -> Optional[tuple[bytes, bytes]]:
         if not self.buckets:
             return None

@@ -3,7 +3,7 @@ from collections import Counter
 import pytest
 
 from cs336_basics.bpe_state import BpeState
-from cs336_basics.bpe_tokenizer import train
+from cs336_basics.bpe_tokenizer import BpeTokenizer
 
 testdata = [
     (Counter({(b'l', b'o', b'w'): 5}), (b'l', b'o'), Counter({(b'lo', b'w'): 5})),
@@ -25,11 +25,12 @@ def test_merge(pretoken_vocab: Counter[tuple[bytes, ...]], pair: tuple[bytes, by
     counts = bpe_state._count_adjacent_pairs(bpe_state.pretoken_vocab)
     assert expected_output == bpe_state.pretoken_vocab
     assert pairs_to_pretoken_index == bpe_state.pairs_to_pretokens_index
-    assert counts == bpe_state.counts
+    assert counts == bpe_state.pretoken_counter.counts
 
 
 def test_train_low_lower():
     # given
+    bpe_tokenizer = BpeTokenizer()
     expected_vocab: dict[int, bytes] = {0: "<|endoftext|>".encode('utf-8')}
     for x in range(1, 256 + 1):
         expected_vocab[x] = bytes([x - 1])
@@ -37,7 +38,9 @@ def test_train_low_lower():
         expected_vocab[1 + 256 + i] = v.encode('utf-8')
     expected_merges = [(b's', b't'), (b'e', b'st'), (b'o', b'w'), (b'l', b'ow'), (b'w', b'est'), (b'n', b'e')]
     # when
-    actual_vocab, actual_merges = train("data/lowlower.txt", 1 + 256 + 6, ["<|endoftext|>"])
+    bpe_tokenizer.train("data/lowlower.txt", 1 + 256 + 6, ["<|endoftext|>"])
+    actual_vocab = bpe_tokenizer.vocab
+    actual_merges = bpe_tokenizer.merges
     # then
     assert actual_merges == expected_merges
     assert actual_vocab == expected_vocab
