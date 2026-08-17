@@ -1,16 +1,14 @@
 import cProfile
 import json
 import pstats
-import threading
+import resource
 import time
 from collections import Counter
 
-import psutil
-
 from cs336_basics.bpe_state import BpeState
+from cs336_basics.peek_memory_sampler import PeekMemorySampler
 from cs336_basics.pretokenization import pretokenize
 from tests.common import gpt2_bytes_to_unicode
-import resource
 
 BYTES_COUNT = 256  # this is really an overkill since in UTF-8 192, 193 and >=245 bytes are not used, but we learn those if at inference time invalid input was somehow passed
 
@@ -84,6 +82,20 @@ class BpeTokenizer:
         text = b"".join(bytes_list).decode('utf-8')
         return text
 
+    def save(self, vocab_path: str, merges_path: str) -> None:
+        encoded_vocab: dict[str, int] = {
+            bytes_to_gpt2_unicode(bytes_item): vocab_index
+            for bytes_item, vocab_index in self.id_vocab.items()
+        }
+        with open(vocab_path, "w", encoding="utf-8") as f:
+            json.dump(encoded_vocab, f, ensure_ascii=False, indent=4)
+        with open(merges_path, "w", encoding="utf-8") as f:
+            for merge in self.merges:
+                f.write(f"{bytes_to_gpt2_unicode(merge[0])} {bytes_to_gpt2_unicode(merge[1])}\n")
+
+    def max_length_token(self) -> tuple[int, bytes]:
+        return max(self.vocab.items(), key=lambda x: len(x[1]))
+
 
 def bytes_to_gpt2_unicode(bytes_token: bytes) -> str:
     return ''.join([gpt2_bytes_to_unicode()[token] for token in bytes_token])
@@ -91,40 +103,14 @@ def bytes_to_gpt2_unicode(bytes_token: bytes) -> str:
 
 if __name__ == "__main__":
     with cProfile.Profile() as pr:
-        # stop = threading.Event()
-        # peak = 0
-        #
-        # def sampler():
-        #     global peak
-        #     me = psutil.Process()
-        #     while not stop.is_set():
-        #         procs = [me] + me.children(recursive=True)
-        #         current = sum(p.memory_info().rss for p in procs)   # ← the measurement
-        #         peak = max(peak, current)
-        #         stop.wait(0.1)
-        #
-        # t = threading.Thread(target=sampler, daemon=True)
-        # t.start()                                    # sampler begins running NOW
+        with PeekMemorySampler() as mem:
+            bpe_tokenizer = BpeTokenizer()
+            bpe_tokenizer.train("data/TinyStoriesV2-GPT4-train.txt", 10000, ["<|endoftext|>"])
 
-        bpe_tokenizer = BpeTokenizer()
-        bpe_tokenizer.train("data/owt_valid.txt", 10000, ["<|endoftext|>"])
-
-        # stop.set()                                   # tell it to finish
-        # t.join()                                     # wait until it has
-        # print(f"peak: {peak / 1024**2:.0f} MiB")
+            print(f"peak: {mem.peak_mib():.0f} MiB")
 
         print(f"Max worker memory used {resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss}")
 
-        vocab: dict[str, int] = {
-            bytes_to_gpt2_unicode(bytes_item): vocab_index
-            for bytes_item, vocab_index in bpe_tokenizer.id_vocab.items()
-        }
-        with open("data/train-bpe-vocab-owt_valid.json", "w", encoding="utf-8") as f:
-            json.dump(vocab, f, ensure_ascii=False, indent=4)
-        with open("data/train-bpe-merges-owt_valid.txt", "w", encoding="utf-8") as f:
-            for merge in bpe_tokenizer.merges:
-                f.write(f"{bytes_to_gpt2_unicode(merge[0])} {bytes_to_gpt2_unicode(merge[1])}\n")
-        max_length_token = max(bpe_tokenizer.vocab.items(), key=lambda x: len(x[1]))
-        print(max_length_token)
+        bpe_tokenizer.save("data/train-bpe-vocab-TinyStoriesV2-GPT4-train.json", "data/train-bpe-merges-TinyStoriesV2-GPT4-train.txt")
+        print(bpe_tokenizer.max_length_token())
     pstats.Stats(pr).sort_stats("cumulative").print_stats(40)
-    # _merge(Counter({(b'l', b'o', b'w', b'e', b'r'): 1}), (b'l', b'o'))

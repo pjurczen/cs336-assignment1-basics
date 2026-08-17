@@ -42,18 +42,40 @@ completed.
 
 ## 2.5 Problem (train_bpe_tinystories): BPE Training on TinyStories
 
-**(a)** Training took 93.6 s (32 s pretokenization across 10 worker processes, 66 s
-for the merge loop) and peaked at roughly 1.5 GB resident memory, because the 2.2 GB
-corpus is memory-mapped and streamed rather than loaded — peak usage tracks the
-~60,000-entry pretoken frequency table, not the size of the data. The longest token is
-`b' accomplishment'` (15 bytes), which makes sense: it is a genuine English word
-frequent enough in TinyStories' narrow, repetitive vocabulary to earn a slot, and its
-leading space is an artifact of the GPT-2 pretokenization regex attaching a space to
-the word that follows it.
+**(a)** Training took 34.8 s (29.0 s pretokenization across 10 worker processes, 5.2 s for
+the merge loop) and peaked at ~1,540 MiB resident across the parent and all workers
+combined, well under the 30 GB budget because the 2.2 GB corpus is memory-mapped and
+streamed rather than loaded — memory tracks the ~60,000-entry pretoken frequency table and
+its indices, not the size of the data. The longest token is `b' accomplishment'` (15 bytes),
+which makes sense: it is a genuine English word frequent enough in TinyStories' narrow,
+repetitive vocabulary to earn a slot, and its leading space is an artifact of the GPT-2
+pretokenization regex attaching a space to the word that follows it.
 
-**(b)** Profiling shows that selecting the most frequent pair dominates: 59.4 s of the
-66 s merge loop (~90%), because it rescans the entire pair-count table — roughly 37,800
-entries — on every one of the 9,743 merges, for 368 million comparisons in total.
-Applying the merges is only 6.7 s by comparison, so replacing the linear scan with a
-priority queue or a count-bucketed structure would be the next optimization.
+**(b)** In the naive implementation, selecting the most frequent pair dominated at 59.4 s
+of a 66 s merge loop, because it rescanned the whole pair-count table on every one of the
+9,743 merges; replacing that linear scan with count-bucketed lookup reduced the merge loop
+to 5.2 s and moved the bottleneck to pretokenization, which is now 83% of the run and is
+itself dominated by the GPT-2 regex.
+
+## 2.6 Problem (train_bpe_expts_owt): BPE Training on OpenWebText
+
+**(a)** Training on the 11.9 GB OpenWebText corpus with a vocabulary of 32,000 took
+75.4 minutes (4.5 min pretokenization, 70.7 min merges) and peaked at ~495 MiB resident
+in the largest single process. The longest token is 64 bytes — the two-character sequence
+`ÃÂ` repeated sixteen times — which is mojibake rather than language: `Ã` (0xC3) and `Â`
+(0xC2) are the commonest UTF-8 leading bytes, so they saturate any text that has been
+decoded as Latin-1 and re-encoded. It makes sense mechanically (that exact 64-byte
+sequence occurs 4,679 times in the training file, e.g. in `can't` where the apostrophe was
+mangled) but is linguistically worthless, and it is diagnostic of a data-quality problem in
+the corpus. Repeated patterns win the longest-token slot in general because merging a token
+with itself doubles its length, so repetitions grow exponentially while real words grow one
+byte at a time.
+
+**(b)** The TinyStories tokenizer reflects a small, clean, synthetic corpus — its longest
+token is the ordinary English word ` accomplishment`, and its merge loop is cheap because
+few distinct pretokens exist, so pretokenization dominates training. The OpenWebText
+tokenizer reflects scraped web text: far greater pretoken diversity makes each merge touch
+roughly ten times as many pretokens (so the merge loop dominates instead), and the
+vocabulary spends slots on formatting artifacts and encoding corruption — long hyphen runs
+and mojibake — rather than on words.
 
