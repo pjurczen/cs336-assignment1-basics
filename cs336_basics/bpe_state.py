@@ -3,6 +3,7 @@ from collections import Counter, defaultdict
 from line_profiler import profile
 
 from cs336_basics.pretoken_counter import PretokenCounter
+from cs336_basics.pretokenization import merge_pretoken
 
 
 class BpeState:
@@ -45,7 +46,9 @@ class BpeState:
             return
         for pretoken in list(self.pairs_to_pretokens_index[pair]):
             count: int = self.pretoken_vocab[pretoken]
-            new_pretoken, old_counts, new_counts = self._merge_pretoken(pair, pretoken)
+            new_pretoken = merge_pretoken(pair, pretoken)
+            old_counts: dict[tuple[bytes, bytes], int] = self._count_byte_pairs(pretoken)
+            new_counts: dict[tuple[bytes, bytes], int] = self._count_byte_pairs(new_pretoken)
             count_deltas: dict[tuple[bytes, bytes], int] = self.get_count_deltas(old_counts, new_counts)
             for merged_pair, delta in count_deltas.items():
                 self.pretoken_counter.add(merged_pair, count * delta)
@@ -68,32 +71,6 @@ class BpeState:
             else:
                 counts[byte_pair] += 1
         return counts
-
-    @classmethod
-    def _get_byte_pairs(cls, pretoken: tuple[bytes, ...]) -> set[tuple[bytes, bytes]]:
-        pairs: set[tuple[bytes, bytes]] = set()
-        for byte_pair in zip(pretoken, pretoken[1:]):
-            pairs.add(byte_pair)
-        return pairs
-
-    @profile
-    @classmethod
-    def _merge_pretoken(cls, pair: tuple[bytes, bytes], pretoken: tuple[bytes, ...]) -> tuple[
-        tuple[bytes, ...], dict[tuple[bytes, bytes], int], dict[tuple[bytes, bytes], int]]:
-        new_pretoken: tuple[bytes, ...] = ()
-        i: int = 0
-        pretoken_len: int = len(pretoken)
-        while i < pretoken_len:
-            if i < pretoken_len - 1 and (pretoken[i], pretoken[i + 1]) == pair:
-                new_token = pretoken[i] + pretoken[i + 1]
-                new_pretoken += (new_token,)
-                i += 2
-            else:
-                new_pretoken += (pretoken[i],)
-                i += 1
-        old_counts: dict[tuple[bytes, bytes], int] = cls._count_byte_pairs(pretoken)
-        new_counts: dict[tuple[bytes, bytes], int] = cls._count_byte_pairs(new_pretoken)
-        return new_pretoken, old_counts, new_counts
 
     @classmethod
     def get_count_deltas(cls, old_counts: dict[tuple[bytes, bytes], int], new_counts: dict[tuple[bytes, bytes], int]) -> dict[tuple[bytes, bytes], int]:

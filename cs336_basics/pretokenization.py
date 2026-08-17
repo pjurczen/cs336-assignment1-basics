@@ -16,6 +16,26 @@ from line_profiler import profile
 PAT = re.compile(rb"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
 
 
+def split_text_to_chunks(text: bytes, special_tokens: list[bytes]) -> list[bytes]:
+    """
+    Splits text by special tokens (any match counts) and returns chunk with trailing special token that caused that split.
+    """
+    if not special_tokens:
+        return [text]
+    sorted_special_tokens = [b'(' + re.escape(x) + b')' for x in special_tokens]
+    sorted_special_tokens.sort(key=lambda x: -len(x))
+    split_pattern = re.compile(b'|'.join(sorted_special_tokens))
+    chunks = split_pattern.split(text)
+    return [c for c in chunks if c]
+
+
+def pretokenize_text(text: bytes) -> list[bytes]:
+    """
+    Pretokenize a text string to separate pretokens.
+    """
+    return PAT.findall(text)
+
+
 def _find_chunk_boundaries(
         file: BinaryIO,
         desired_num_chunks: int,
@@ -77,7 +97,7 @@ def _pretokenize_chunk(start_idx: int, end_idx: int, path: str, split_special_to
     tuple[bytes, ...]]:
     frequencies: Counter[tuple[bytes, ...]] = Counter({})
     split_pattern = re.compile(re.escape(split_special_token))
-    page_size: int = mmap.ALLOCATIONGRANULARITY # Apple silicon memory allocation size
+    page_size: int = mmap.ALLOCATIONGRANULARITY  # Apple silicon memory allocation size
     diff_to_full_page_size: int = start_idx % page_size
     full_page_start_in_file: int = start_idx - diff_to_full_page_size
     start_in_mm: int = diff_to_full_page_size
@@ -103,7 +123,7 @@ def _merge_frequencies(dict1: Counter[tuple[bytes, ...]], dict2: Counter[tuple[b
 
 
 def pretokenize(path: str, num_processes: Optional[int] = None, split_special_token: bytes = b"<|endoftext|>") -> \
-Counter[tuple[bytes, ...]]:
+        Counter[tuple[bytes, ...]]:
     num_processes = num_processes or os.cpu_count()
     frequencies: Counter[tuple[bytes, ...]] = Counter({})
     with open(path, "rb") as f:
@@ -122,6 +142,29 @@ Counter[tuple[bytes, ...]]:
         t3 = time.perf_counter()
         print(f"merge: {t3 - t2:.2f}s")
     return frequencies
+
+
+@profile
+def merge_pretoken(pair: tuple[bytes, bytes], pretoken: tuple[bytes, ...]) -> tuple[bytes, ...]:
+    new_pretoken: tuple[bytes, ...] = ()
+    i: int = 0
+    pretoken_len: int = len(pretoken)
+    while i < pretoken_len:
+        if i < pretoken_len - 1 and (pretoken[i], pretoken[i + 1]) == pair:
+            new_token = pretoken[i] + pretoken[i + 1]
+            new_pretoken += (new_token,)
+            i += 2
+        else:
+            new_pretoken += (pretoken[i],)
+            i += 1
+    return new_pretoken
+
+
+def get_byte_pairs(pretoken: tuple[bytes, ...]) -> set[tuple[bytes, bytes]]:
+    pairs: set[tuple[bytes, bytes]] = set()
+    for byte_pair in zip(pretoken, pretoken[1:]):
+        pairs.add(byte_pair)
+    return pairs
 
 
 def profile_pretokenization(path: str):
