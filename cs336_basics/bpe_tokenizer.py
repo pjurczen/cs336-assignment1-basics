@@ -105,12 +105,12 @@ if __name__ == "__main__":
     with cProfile.Profile() as pr:
         with PeekMemorySampler() as mem:
             bpe_tokenizer = BpeTokenizer()
-            bpe_tokenizer.train("data/TinyStoriesV2-GPT4-train.txt", 10000, ["<|endoftext|>"])
+            bpe_tokenizer.train("data/owt_train.txt", 32000, ["<|endoftext|>"])
 
             print(f"peak: {mem.peak_mib():.0f} MiB")
 
         print(f"Max worker memory used {resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss}")
 
-        bpe_tokenizer.save("data/train-bpe-vocab-TinyStoriesV2-GPT4-train.json", "data/train-bpe-merges-TinyStoriesV2-GPT4-train.txt")
+        bpe_tokenizer.save("data/train-bpe-vocab-owt_train.json", "data/train-bpe-merges-owt_train.txt")
         print(bpe_tokenizer.max_length_token())
     pstats.Stats(pr).sort_stats("cumulative").print_stats(40)

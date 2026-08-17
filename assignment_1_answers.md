@@ -60,8 +60,8 @@ itself dominated by the GPT-2 regex.
 ## 2.6 Problem (train_bpe_expts_owt): BPE Training on OpenWebText
 
 **(a)** Training on the 11.9 GB OpenWebText corpus with a vocabulary of 32,000 took
-75.4 minutes (4.5 min pretokenization, 70.7 min merges) and peaked at ~495 MiB resident
-in the largest single process. The longest token is 64 bytes — the two-character sequence
+61.2 minutes (4.8 min pretokenization, 56.2 min merges) and peaked at ~3.6 GB resident.
+The longest token is 64 bytes — the two-character sequence
 `ÃÂ` repeated sixteen times — which is mojibake rather than language: `Ã` (0xC3) and `Â`
 (0xC2) are the commonest UTF-8 leading bytes, so they saturate any text that has been
 decoded as Latin-1 and re-encoded. It makes sense mechanically (that exact 64-byte
@@ -72,10 +72,11 @@ with itself doubles its length, so repetitions grow exponentially while real wor
 byte at a time.
 
 **(b)** The TinyStories tokenizer reflects a small, clean, synthetic corpus — its longest
-token is the ordinary English word ` accomplishment`, and its merge loop is cheap because
-few distinct pretokens exist, so pretokenization dominates training. The OpenWebText
-tokenizer reflects scraped web text: far greater pretoken diversity makes each merge touch
-roughly ten times as many pretokens (so the merge loop dominates instead), and the
-vocabulary spends slots on formatting artifacts and encoding corruption — long hyphen runs
-and mojibake — rather than on words.
+token is the ordinary English word ` accomplishment`, few distinct pretokens exist so the
+merge loop is cheap, and pretokenization is 83% of training time with memory peaking in the
+worker processes. The OpenWebText tokenizer reflects scraped web text: far greater pretoken
+diversity makes each merge touch roughly ten times as many pretokens, so merging instead
+accounts for 92% of the time and memory peaks in the parent's merge-loop state (3.6 GB
+versus 1.5 GB), and the vocabulary spends slots on formatting artifacts and encoding
+corruption — long hyphen runs and mojibake — rather than on words.
 
