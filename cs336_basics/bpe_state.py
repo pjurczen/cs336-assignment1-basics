@@ -43,7 +43,7 @@ class BpeState:
         # iterate over pretokens that contain this pair only
         if pair not in self.pairs_to_pretokens_index:
             return
-        for pretoken in self.pairs_to_pretokens_index[pair].copy():
+        for pretoken in list(self.pairs_to_pretokens_index[pair]):
             count: int = self.pretoken_vocab[pretoken]
             new_pretoken, old_counts, new_counts = self._merge_pretoken(pair, pretoken)
             count_deltas: dict[tuple[bytes, bytes], int] = self.get_count_deltas(old_counts, new_counts)
