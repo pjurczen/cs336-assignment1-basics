@@ -35,8 +35,9 @@ class PretokenCounter:
                 self.buckets[new_count] = set()
             self.buckets[new_count].add(pair)
         if old_count != 0:
-            self.buckets[old_count].remove(pair)
-            if not self.buckets[old_count]:
+            bucket: set[tuple[bytes, bytes]] = self.buckets[old_count]
+            bucket.remove(pair)
+            if not bucket:
                 del self.buckets[old_count]
             if old_count == self.max_count:
                 self.max_count = max(self.buckets)

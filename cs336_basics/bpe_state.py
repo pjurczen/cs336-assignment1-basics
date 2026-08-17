@@ -50,10 +50,10 @@ class BpeState:
             for merged_pair, delta in count_deltas.items():
                 self.pretoken_counter.add(merged_pair, count * delta)
             for old_pair in old_counts.keys():
-                if old_pair in self.pairs_to_pretokens_index and pretoken in self.pairs_to_pretokens_index[old_pair]:
-                    self.pairs_to_pretokens_index[old_pair].remove(pretoken)
-                    if not self.pairs_to_pretokens_index[old_pair]:
-                        del self.pairs_to_pretokens_index[old_pair]
+                bucket: set[tuple[bytes, ...]] = self.pairs_to_pretokens_index[old_pair]
+                bucket.remove(pretoken)
+                if not bucket:
+                    del self.pairs_to_pretokens_index[old_pair]
             for new_pair in new_counts.keys():
                 self.pairs_to_pretokens_index[new_pair].add(new_pretoken)
             del self.pretoken_vocab[pretoken]
