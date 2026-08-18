@@ -80,3 +80,18 @@ accounts for 92% of the time and memory peaks in the parent's merge-loop state (
 versus 1.5 GB), and the vocabulary spends slots on formatting artifacts and encoding
 corruption — long hyphen runs and mojibake — rather than on words.
 
+## 2.7 Problem (tokenizer_experiments): Experiments with tokenizers
+
+**(a)** Sampling 10 documents at uniform random byte offsets from each validation set, the
+TinyStories tokenizer (10K vocabulary) achieves ~4.0 bytes/token and the OpenWebText
+tokenizer (32K vocabulary) ~4.5 bytes/token. The gap reflects the corpora more than the
+tokenizers: TinyStories uses deliberately short, simple words, so each token carries fewer
+bytes, whereas OpenWebText's longer words and repeated boilerplate pack more bytes into each
+token.
+
+**(b)** Encoding the OpenWebText sample with the TinyStories tokenizer drops the compression
+ratio from 4.65 to 3.19 bytes/token, a 31% degradation. Vocabulary size accounts for only a
+small part of that (going from 50K to 200K buys reference tokenizers ~6% on this corpus), so
+the bulk is domain mismatch: the TinyStories merges were learned on short, repetitive
+children's prose, and OpenWebText's technical vocabulary, proper nouns, URLs and formatting
+runs have no corresponding merges, falling back to near-byte-level tokens.

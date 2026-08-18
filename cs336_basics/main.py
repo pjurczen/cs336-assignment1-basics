@@ -25,5 +25,6 @@ def execute():
     print("s".encode('utf-8'))
     print(list(bytes([115])))
 
+
 if __name__ == "__main__":
     execute()
