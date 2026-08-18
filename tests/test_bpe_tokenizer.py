@@ -1,10 +1,13 @@
 from collections import Counter
 
 import pytest
+import tiktoken
 
 from cs336_basics.bpe_state import BpeState
 from cs336_basics.bpe_tokenizer import BpeTokenizer
 from cs336_basics.pretokenization import merge_pretoken
+from tests.common import FIXTURES_PATH
+from tests.test_tokenizer import get_tokenizer_from_vocab_merges_path, VOCAB_PATH, MERGES_PATH
 
 testdata = [
     (Counter({(b'l', b'o', b'w'): 5}), (b'l', b'o'), Counter({(b'lo', b'w'): 5})),
@@ -183,3 +186,54 @@ def test_merge_pretoken_2_occurences():
     assert count_deltas[(b'b', b'al')] == 1
     assert count_deltas[(b'al', b'c')] == 1
     assert count_deltas[(b'c', b'al')] == 1
+
+
+def test_encode_iterable_single_characters_stream():
+    reference_tokenizer = tiktoken.get_encoding("gpt2")
+    tokenizer = get_tokenizer_from_vocab_merges_path(
+        vocab_path=VOCAB_PATH,
+        merges_path=MERGES_PATH,
+        special_tokens=["<|endoftext|>"],
+    )
+    text: str = "This is a cat<|endoftext|>That cat likes to eat"
+    reference_ids: list[int] = reference_tokenizer.encode(text, allowed_special={"<|endoftext|>"})
+    all_ids: list[int] = []
+    for _id in tokenizer.encode_iterable(text.__iter__()):
+        all_ids.append(_id)
+
+    assert reference_ids == all_ids
+
+
+def test_encode_iterable_chunked_stream():
+    reference_tokenizer = tiktoken.get_encoding("gpt2")
+    tokenizer = get_tokenizer_from_vocab_merges_path(
+        vocab_path=VOCAB_PATH,
+        merges_path=MERGES_PATH,
+        special_tokens=["<|endoftext|>"],
+    )
+    text: list[str] = ["This is a cat\n", "<|endoftext|>\n", "That cat likes to eat\n", "<|endoftext|>\n"]
+    reference_ids: list[int] = reference_tokenizer.encode(''.join(text), allowed_special={"<|endoftext|>"})
+    all_ids: list[int] = []
+    for _id in tokenizer.encode_iterable(text.__iter__()):
+        all_ids.append(_id)
+
+    assert reference_ids == all_ids
+
+
+def test_encode_iterable_tinystories_short():
+    reference_tokenizer = tiktoken.get_encoding("gpt2")
+    tokenizer = get_tokenizer_from_vocab_merges_path(
+        vocab_path=VOCAB_PATH,
+        merges_path=MERGES_PATH,
+        special_tokens=["<|endoftext|>"],
+    )
+    corpus_path = FIXTURES_PATH / "tinystories_sample_short.txt"
+    with open(corpus_path) as f:
+        corpus_contents = f.read()
+    reference_ids = reference_tokenizer.encode(corpus_contents, allowed_special={"<|endoftext|>"})
+    all_ids = []
+    with open(FIXTURES_PATH / "tinystories_sample_short.txt") as f:
+        for _id in tokenizer.encode_iterable(f):
+            all_ids.append(_id)
+
+    assert reference_ids == all_ids

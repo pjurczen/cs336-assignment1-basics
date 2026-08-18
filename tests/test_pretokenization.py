@@ -24,3 +24,8 @@ def test_pretokenize_text_single_character():
 def test_pretokenize_text_two_words():
     result = pretokenize_text(b'the cat')
     assert result == [b'the', b' cat']
+
+
+def test_split_text_to_chunks_new_line_characters():
+    result = split_text_to_chunks(b'the cat\n<|endoftext|>\nlikes to eat\n<|endoftext|>\n', [b'<|endoftext|>'])
+    assert result == [b'the cat\n', b'<|endoftext|>', b'\nlikes to eat\n', b'<|endoftext|>', b'\n']

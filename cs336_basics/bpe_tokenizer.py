@@ -10,7 +10,7 @@ from functools import lru_cache
 from cs336_basics.bpe_state import BpeState
 from cs336_basics.peek_memory_sampler import PeekMemorySampler
 from cs336_basics.pretokenization import pretokenize, split_text_to_chunks, pretokenize_text, _build_tuple_bytes, \
-    merge_pretoken, get_byte_pairs
+    merge_pretoken, get_byte_pairs, PAT
 from tests.common import gpt2_bytes_to_unicode
 
 BYTES_COUNT = 256  # this is really an overkill since in UTF-8 192, 193 and >=245 bytes are not used, but we learn those if at inference time invalid input was somehow passed
@@ -85,14 +85,120 @@ class BpeTokenizer:
         return encoded_ids
 
     def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
-        pass
+        # Streaming encode. The buffer holds bytes that are not yet safe to emit.
+        #
+        # 1. Pull the next chunk from the iterable and append it to the buffer.
+        #
+        # 2. Split the buffer on special tokens. split() returns them interleaved:
+        #       b'a<|eot|>b'  ->  [b'a', b'<|eot|>', b'b']
+        #
+        # 3. Every chunk EXCEPT the last is settled — a matched special token bounds it
+        #    on the right, so nothing arriving later can change it. Process each one
+        #    completely and forget it:
+        #       a) it is a special token  ->  emit its encoded id
+        #       b) otherwise              ->  pretokenize and emit ALL encoded pretokens
+        #
+        # 4. The last chunk is open-ended: more input could still extend it. Three cases,
+        #    tested in this order (a chunk can be both a whole token and a prefix of a
+        #    longer one, e.g. <|eot|> vs <|eot|><|eot|>):
+        #       a) it is a proper prefix of some special token
+        #             ->  emit nothing, leave it in the buffer, go to 1
+        #       b) it equals a special token
+        #             ->  emit its id, buffer becomes empty
+        #       c) neither
+        #             ->  pretokenize; emit all but the final pretoken, and leave that
+        #                 final pretoken in the buffer (it may still grow)
+        #
+        # 5. When the iterable is exhausted, flush: split the buffer and emit every chunk
+        #    in full — special tokens as ids, text chunks fully pretokenized. Nothing is
+        #    withheld, since no more input is coming.
+        buffer: bytes = b''
+        for input_chunk in iterable:
+            # 1.
+            buffer += input_chunk.encode('utf-8')
+            # 2.
+            split_chunks: list[bytes] = split_text_to_chunks(buffer, self.special_tokens)
+            chunk_idx: int = 0
+            while chunk_idx < len(split_chunks):
+                last_chunk: bool = chunk_idx == len(split_chunks) - 1
+                current_chunk: bytes = split_chunks[chunk_idx]
+                if not last_chunk:
+                    # 3. a)
+                    special_token_found: bool = False
+                    for special_token in self.special_tokens:
+                        if current_chunk == special_token:
+                            special_token_found = True
+                            break
+                    if special_token_found:
+                        yield self.id_vocab[current_chunk]
+                        buffer = buffer[len(current_chunk):]
+                        chunk_idx += 1
+                    # 3. b)
+                    else:
+                        pretokens: list[bytes] = PAT.findall(current_chunk)
+                        for pretoken in pretokens:
+                            encoded_ids: list[int] = self._encode_pretoken(pretoken)
+                            for idx in encoded_ids:
+                                yield idx
+                        buffer = buffer[len(current_chunk):]
+                        chunk_idx += 1
+                else:
+                    special_token_start: bool = False
+                    special_token_found: bool = False
+                    for special_token in self.special_tokens:
+                        if special_token.startswith(current_chunk):
+                            if special_token != current_chunk:  # 4. a)
+                                special_token_start = True
+                                break
+                            elif special_token == current_chunk:  # 4. b)
+                                special_token_found = True
+                                break
+                    # 4. a)
+                    if special_token_start:
+                        break
+                    # 4. b)
+                    elif special_token_found:
+                        yield self.id_vocab[current_chunk]
+                        buffer = buffer[len(current_chunk):]
+                        chunk_idx += 1
+                    # 4. c)
+                    else:
+                        pretokens: list[bytes] = PAT.findall(current_chunk)
+                        for pretoken in pretokens[:-1]:
+                            encoded_ids: list[int] = self._encode_pretoken(pretoken)
+                            for idx in encoded_ids:
+                                yield idx
+                            buffer = buffer[len(pretoken):]
+                        chunk_idx += 1
+        # 5.
+        split_chunks: list[bytes] = split_text_to_chunks(buffer, self.special_tokens)
+        chunk_idx: int = 0
+        while chunk_idx < len(split_chunks):
+            current_chunk: bytes = split_chunks[chunk_idx]
+            special_token_found: bool = False
+            for special_token in self.special_tokens:
+                if current_chunk == special_token:
+                    special_token_found = True
+                    break
+            if special_token_found:
+                yield self.id_vocab[current_chunk]
+                buffer = buffer[len(current_chunk):]
+                chunk_idx += 1
+            else:
+                pretokens: list[bytes] = PAT.findall(current_chunk)
+                for pretoken in pretokens:
+                    encoded_ids: list[int] = self._encode_pretoken(pretoken)
+                    for idx in encoded_ids:
+                        yield idx
+                buffer = buffer[len(current_chunk):]
+                chunk_idx += 1
 
     @lru_cache(maxsize=None)
     def _encode_pretoken(self, pretoken: bytes) -> list[int]:
         tuple_bytes: tuple[bytes, ...] = _build_tuple_bytes(pretoken)
         while True:
             byte_pairs: set[tuple[bytes, bytes]] = get_byte_pairs(tuple_bytes)
-            candidates: list[tuple[bytes, bytes]] = [x for x in byte_pairs if x in self.merges]
+            candidates: list[tuple[bytes, bytes]] = [x for x in byte_pairs if x in self.merges_rank]
             if not candidates:
                 break
             pair: tuple[bytes, bytes] = min(candidates, key=self.merges_rank.get)
