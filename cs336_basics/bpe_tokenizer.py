@@ -20,7 +20,6 @@ class BpeTokenizer:
     vocab: dict[int, bytes]
     id_vocab: dict[bytes, int]
     merges: list[tuple[bytes, bytes]]
-    merges_dict: dict[bytes, bytes]
     merges_rank: dict[tuple[bytes, bytes], int]
     special_tokens: list[bytes]
 
@@ -29,7 +28,6 @@ class BpeTokenizer:
         self.id_vocab = {}
         self.merges = []
         self.special_tokens = []
-        self.merges_dict = {}
 
     @classmethod
     def from_resources(cls, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens: list[str] | None = None) -> "BpeTokenizer":
@@ -37,8 +35,8 @@ class BpeTokenizer:
         bpe_tokenizer.merges = merges
         bpe_tokenizer.vocab = vocab
         bpe_tokenizer.special_tokens = [x.encode('utf-8') for x in special_tokens] if special_tokens else []
+        bpe_tokenizer.special_tokens.sort(key=lambda x: len(x), reverse=True)
         bpe_tokenizer.id_vocab = {id: byte for byte, id in vocab.items()}
-        bpe_tokenizer.merges_dict = {x[0]: x[1] for x in merges}
         bpe_tokenizer.merges_rank = {pair: i for i, pair in enumerate(merges)}
         return bpe_tokenizer
 
@@ -46,6 +44,7 @@ class BpeTokenizer:
         merges: list[tuple[bytes, bytes]] = []
         vocab: dict[int, bytes] = {x: special_tokens[x].encode('utf-8') for x in range(len(special_tokens))}
         self.special_tokens = [x.encode('utf-8') for x in special_tokens]
+        self.special_tokens.sort(key=lambda x: len(x), reverse=True)
         special_tokens_count: int = len(special_tokens)
         for x in range(special_tokens_count, BYTES_COUNT + special_tokens_count):
             vocab[x] = bytes([x - special_tokens_count])
@@ -68,7 +67,6 @@ class BpeTokenizer:
         self.vocab = vocab
         self.id_vocab = {id: byte for byte, id in vocab.items()}
         self.merges = merges
-        self.merges_dict = {x[0]: x[1] for x in merges}
         self.merges_rank = {pair: i for i, pair in enumerate(merges)}
 
     def encode(self, text: str) -> list[int]:
@@ -149,6 +147,8 @@ class BpeTokenizer:
                         if special_token.startswith(current_chunk):
                             if special_token != current_chunk:  # 4. a)
                                 special_token_start = True
+                                # We can break here because we sorted the special tokens from longest to shortest guaranteeing that first match is enough
+                                # If we didn't we would land in the elif and wrongly identify as a special shorter token before reading enough buffer
                                 break
                             elif special_token == current_chunk:  # 4. b)
                                 special_token_found = True

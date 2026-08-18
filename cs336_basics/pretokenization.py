@@ -16,15 +16,15 @@ from line_profiler import profile
 PAT = re.compile(rb"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
 
 
-def split_text_to_chunks(text: bytes, special_tokens: list[bytes]) -> list[bytes]:
+def split_text_to_chunks(text: bytes, sorted_special_tokens: list[bytes]) -> list[bytes]:
     """
     Splits text by special tokens (any match counts) and returns chunk with trailing special token that caused that split.
+    Special tokens must be sorted from longest to shortest in the input param.
     """
-    if not special_tokens:
+    if not sorted_special_tokens:
         return [text]
-    sorted_special_tokens = [b'(' + re.escape(x) + b')' for x in special_tokens]
-    sorted_special_tokens.sort(key=lambda x: -len(x))
-    split_pattern = re.compile(b'|'.join(sorted_special_tokens))
+    special_tokens = [re.escape(x) for x in sorted_special_tokens]
+    split_pattern = re.compile(b'(' + b'|'.join(special_tokens) + b')')
     chunks = split_pattern.split(text)
     return [c for c in chunks if c]
 
