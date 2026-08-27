@@ -95,3 +95,9 @@ small part of that (going from 50K to 200K buys reference tokenizers ~6% on this
 the bulk is domain mismatch: the TinyStories merges were learned on short, repetitive
 children's prose, and OpenWebText's technical vocabulary, proper nouns, URLs and formatting
 runs have no corresponding merges, falling back to near-byte-level tokens.
+
+**(c)** Encoding a random 10 MB slice of OpenWebText with the 32K tokenizer runs at
+~3.4 MB/s single-threaded, which is consistent with pretokenization alone measuring ~4.2 MB/s
+per process on the same corpus. At that rate the 825 GB Pile would take roughly 2.8 days on
+one core, or about 7 hours parallelized across the 10 worker processes the pretokenizer
+already uses.

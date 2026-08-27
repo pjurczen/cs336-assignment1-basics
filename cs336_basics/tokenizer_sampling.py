@@ -1,6 +1,9 @@
 import mmap
 import os
 import pathlib
+import random
+import time
+from io import StringIO
 from random import Random
 
 from tests.test_tokenizer import get_tokenizer_from_vocab_merges_path
@@ -11,11 +14,13 @@ TINY_STORIES_FILE_PATH = pathlib.Path(__file__).resolve().parent / "../data/Tiny
 
 OPEN_WEB_TEXT_VOCAB_PATH = pathlib.Path(__file__).resolve().parent / "../data/train-bpe-vocab-owt_train.json"
 OPEN_WEB_TEXT_MERGES_PATH = pathlib.Path(__file__).resolve().parent / "../data/train-bpe-merges-owt_train.txt"
-OPEN_WEB_TEXT_FILE_PATH = pathlib.Path(__file__).resolve().parent / "../data/owt_valid.txt"
+OPEN_WEB_TEXT_FILE_PATH = pathlib.Path(__file__).resolve().parent / "../data/owt_train.txt"
 
 SPECIAL_TOKEN: str = "<|endoftext|>"
 
-SAMPLE_SIZE: int = 10
+COMPRESSION_RATIO_SAMPLE_SIZE: int = 10
+
+ENCODING_FILE_LENGTH_SAMPLE_SIZE: int = 10 * 1024 * 1024  # 10MB
 
 
 def compression_ratio_sampling(vocab_path: os.PathLike, merges_path: os.PathLike, text_file_path: os.PathLike, special_token: str) -> None:
@@ -28,7 +33,7 @@ def compression_ratio_sampling(vocab_path: os.PathLike, merges_path: os.PathLike
         file_size: int = file.tell()
         file.seek(0)
         random = Random()
-        sample_indices: list[int] = random.sample(range(file_size), SAMPLE_SIZE)
+        sample_indices: list[int] = random.sample(range(file_size), COMPRESSION_RATIO_SAMPLE_SIZE)
         sample_chunks_boundaries: list[tuple[int, int]] = []
         with mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) as mm:
             for i in range(0, len(sample_indices)):
@@ -50,7 +55,25 @@ def compression_ratio_sampling(vocab_path: os.PathLike, merges_path: os.PathLike
     print(sum(samples_compression_ratio) / len(samples_compression_ratio))
 
 
+def measure_encoding_performance() -> None:
+    tokenizer = get_tokenizer_from_vocab_merges_path(OPEN_WEB_TEXT_VOCAB_PATH, OPEN_WEB_TEXT_MERGES_PATH, [SPECIAL_TOKEN])
+    with open(OPEN_WEB_TEXT_FILE_PATH, "rb") as file:
+        total_size: int = file.seek(0, os.SEEK_END)
+        p: int = random.randrange(total_size - ENCODING_FILE_LENGTH_SAMPLE_SIZE)
+        file.seek(p)
+        raw_bytes: bytes = file.read(ENCODING_FILE_LENGTH_SAMPLE_SIZE)
+        text: str = raw_bytes.decode('utf-8', errors='ignore')
+        num_bytes: int = len(text.encode('utf-8'))
+        string_stream: StringIO = StringIO(text)
+        t0 = time.perf_counter()
+        n_tokens = sum(1 for _ in tokenizer.encode_iterable(string_stream))
+        t1 = time.perf_counter()
+        print(f"encoding time: {t1 - t0:.2f}s")
+        print(f"encoding speed: {num_bytes / (t1 - t0):.0f} bytes/s")
+        print(f"compression ratio: {num_bytes / n_tokens:.2f} bytes/token")
+
 if __name__ == "__main__":
-    compression_ratio_sampling(TINY_STORIES_VOCAB_PATH, TINY_STORIES_MERGES_PATH, TINY_STORIES_FILE_PATH, SPECIAL_TOKEN)
-    compression_ratio_sampling(OPEN_WEB_TEXT_VOCAB_PATH, OPEN_WEB_TEXT_MERGES_PATH, OPEN_WEB_TEXT_FILE_PATH, SPECIAL_TOKEN)
-    compression_ratio_sampling(TINY_STORIES_VOCAB_PATH, TINY_STORIES_MERGES_PATH, OPEN_WEB_TEXT_FILE_PATH, SPECIAL_TOKEN)
+    # compression_ratio_sampling(TINY_STORIES_VOCAB_PATH, TINY_STORIES_MERGES_PATH, TINY_STORIES_FILE_PATH, SPECIAL_TOKEN)
+    # compression_ratio_sampling(OPEN_WEB_TEXT_VOCAB_PATH, OPEN_WEB_TEXT_MERGES_PATH, OPEN_WEB_TEXT_FILE_PATH, SPECIAL_TOKEN)
+    # compression_ratio_sampling(TINY_STORIES_VOCAB_PATH, TINY_STORIES_MERGES_PATH, OPEN_WEB_TEXT_FILE_PATH, SPECIAL_TOKEN)
+    measure_encoding_performance()
