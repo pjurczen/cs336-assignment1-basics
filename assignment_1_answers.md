@@ -101,3 +101,9 @@ runs have no corresponding merges, falling back to near-byte-level tokens.
 per process on the same corpus. At that rate the 825 GB Pile would take roughly 2.8 days on
 one core, or about 7 hours parallelized across the 10 worker processes the pretokenizer
 already uses.
+
+**(d)** uint16 is appropriate choice because it allows us range of [0, 2^16) = [0, 65536) => 0 - 65535
+enough than our vocab size of 32k and saves us a lot of space by only taking 2 bytes compared
+to python int object which would take 28 bytes for every number in our 0-32k range. uint8 would be only
+256 numbers which is too little, uint32 would be just bigger range (and therefore bigger file size) with
+no need.
