@@ -6,15 +6,17 @@ import time
 from io import StringIO
 from random import Random
 
+import numpy as np
+
 from tests.test_tokenizer import get_tokenizer_from_vocab_merges_path
 
 TINY_STORIES_VOCAB_PATH = pathlib.Path(__file__).resolve().parent / "../data/train-bpe-vocab-TinyStoriesV2-GPT4-train.json"
 TINY_STORIES_MERGES_PATH = pathlib.Path(__file__).resolve().parent / "../data/train-bpe-merges-TinyStoriesV2-GPT4-train.txt"
-TINY_STORIES_FILE_PATH = pathlib.Path(__file__).resolve().parent / "../data/TinyStoriesV2-GPT4-valid.txt"
+TINY_STORIES_FILE_PATH = pathlib.Path(__file__).resolve().parent / "../data/TinyStoriesV2-GPT4-train.txt"
 
 OPEN_WEB_TEXT_VOCAB_PATH = pathlib.Path(__file__).resolve().parent / "../data/train-bpe-vocab-owt_train.json"
 OPEN_WEB_TEXT_MERGES_PATH = pathlib.Path(__file__).resolve().parent / "../data/train-bpe-merges-owt_train.txt"
-OPEN_WEB_TEXT_FILE_PATH = pathlib.Path(__file__).resolve().parent / "../data/owt_train.txt"
+OPEN_WEB_TEXT_FILE_PATH = pathlib.Path(__file__).resolve().parent / "../data/owt_valid.txt"
 
 SPECIAL_TOKEN: str = "<|endoftext|>"
 
@@ -72,8 +74,24 @@ def measure_encoding_performance() -> None:
         print(f"encoding speed: {num_bytes / (t1 - t0):.0f} bytes/s")
         print(f"compression ratio: {num_bytes / n_tokens:.2f} bytes/token")
 
+
+def encode_file():
+    tokenizer = get_tokenizer_from_vocab_merges_path(TINY_STORIES_VOCAB_PATH, TINY_STORIES_MERGES_PATH, [SPECIAL_TOKEN])
+    with open(TINY_STORIES_FILE_PATH, "r") as file:
+        arr = np.fromiter(tokenizer.encode_iterable(file), dtype=np.uint16, count=-1)
+        np.save("TinyStoriesV2-GPT4-train_ids.npy", arr)
+
+
+def print_decoded_sample():
+    arr = np.load("data/owt_train_ids.npy", mmap_mode="r")
+    print(len(arr))  # 2,727,321,299
+    tokenizer = get_tokenizer_from_vocab_merges_path(OPEN_WEB_TEXT_VOCAB_PATH, OPEN_WEB_TEXT_MERGES_PATH, [SPECIAL_TOKEN])
+    print(tokenizer.decode(arr[:200].tolist()))
+
 if __name__ == "__main__":
     # compression_ratio_sampling(TINY_STORIES_VOCAB_PATH, TINY_STORIES_MERGES_PATH, TINY_STORIES_FILE_PATH, SPECIAL_TOKEN)
     # compression_ratio_sampling(OPEN_WEB_TEXT_VOCAB_PATH, OPEN_WEB_TEXT_MERGES_PATH, OPEN_WEB_TEXT_FILE_PATH, SPECIAL_TOKEN)
     # compression_ratio_sampling(TINY_STORIES_VOCAB_PATH, TINY_STORIES_MERGES_PATH, OPEN_WEB_TEXT_FILE_PATH, SPECIAL_TOKEN)
-    measure_encoding_performance()
+    # measure_encoding_performance()
+    # print_decoded_sample()
+    encode_file()
