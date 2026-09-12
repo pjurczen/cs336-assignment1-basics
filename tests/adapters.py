@@ -9,6 +9,7 @@ import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
+from cs336_basics.attention import scaled_dot_product_attention
 from cs336_basics.bpe_tokenizer import BpeTokenizer
 from cs336_basics.embedding import Embedding
 from cs336_basics.linear import Linear
@@ -117,7 +118,7 @@ def run_scaled_dot_product_attention(
     Returns:
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
-    raise NotImplementedError
+    return scaled_dot_product_attention(Q, K, V, mask)
 
 
 def run_multihead_self_attention(
