@@ -15,11 +15,11 @@ def scaled_dot_product_attention(
         mask: Bool[torch.Tensor, " ... queries keys"] | None
 ) -> Float[torch.Tensor, " ... seq_len d_v"]:
     d_k = Q.shape[-1]
-    qk = einsum(Q, K, "... queries d_k, ... keys d_k -> ... queries keys") / math.sqrt(d_k)
+    qk = einsum(Q, K, "... queries d_k, ... keys d_k -> ... queries keys") / math.sqrt(d_k)  # => [FLOPs] (b, n, d) @ (b, n, d) = 2bn²d
     if mask is not None:
         qk = qk.masked_fill(~mask, float("-Inf"))
     qk = softmax(qk, dim=-1)
-    return einsum(qk, V, "... queries keys, ... keys d_v -> ... queries d_v")
+    return einsum(qk, V, "... queries keys, ... keys d_v -> ... queries d_v")  # => [FLOPs] (b, n, n) @ (b, n, d) = 2bn²d
 
 
 import torch
@@ -110,7 +110,7 @@ class CasualMultiHeadSelfAttentionOptimized(torch.nn.Module):
         casual_mask = (torch.tril(torch.ones(seq_len, seq_len, device=self.device)) == 1)
         if token_positions is None:
             token_positions = torch.arange(seq_len, device=self.device)
-        w_x = self.qkv_proj.forward(x)  # (..., seq_len, hd_k + hd_k + hd_v)
+        w_x = self.qkv_proj.forward(x)  # (..., seq_len, hd_k + hd_k + hd_v) => [FLOPs] (b, n, d) @ (d, 3d) = 6bnd²
         wq_x = w_x[..., :self.num_heads * self.d_k]
         wk_x = w_x[..., self.num_heads * self.d_k:2 * self.num_heads * self.d_k]
         wv_x = w_x[..., 2 * self.num_heads * self.d_k:]
@@ -120,6 +120,6 @@ class CasualMultiHeadSelfAttentionOptimized(torch.nn.Module):
         if self.rope:
             wq_x_i = self.rope.forward(wq_x_i, token_positions)
             wk_x_i = self.rope.forward(wk_x_i, token_positions)
-        result = scaled_dot_product_attention(wq_x_i, wk_x_i, wv_x_i, casual_mask)  # (..., h, seq_len, d_v)
+        result = scaled_dot_product_attention(wq_x_i, wk_x_i, wv_x_i, casual_mask)  # (..., h, seq_len, d_v) => [FLOPs] 4bn²d
         result = rearrange(result, "... h seq_len d_v -> ... seq_len (h d_v)")
-        return self.output_proj.forward(result)
+        return self.output_proj.forward(result)  # => [FLOPs] (b, n, d) @ (d, d) = 2bnd²

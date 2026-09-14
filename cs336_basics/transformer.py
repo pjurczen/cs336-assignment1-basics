@@ -16,11 +16,11 @@ class TransformerBlock(torch.nn.Module):
                  device: torch.device | None = None, dtype: torch.dtype | None = None):
         super().__init__()
         self.ln1 = RMSNorm(d_model, eps, device=device, dtype=dtype)
-        self.attn = CasualMultiHeadSelfAttentionOptimized(d_model, num_heads, max_seq_len, theta, device=device, dtype=dtype)
+        self.attn = CasualMultiHeadSelfAttentionOptimized(d_model, num_heads, max_seq_len, theta, device=device, dtype=dtype)  # => [FLOPs] 8bnd²
         self.ln2 = RMSNorm(d_model, eps, device=device, dtype=dtype)
         self.ffn = SwiGLU(d_model, d_ff, device=device, dtype=dtype)
 
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
-        y = x + self.attn(self.ln1(x), token_positions)
-        y = y + self.ffn(self.ln2(y))
+        y = x + self.attn(self.ln1(x), token_positions)  # => [FLOPs] 8 bnd² + 4bn²d
+        y = y + self.ffn(self.ln2(y))  # => [FLOPs] 16 bnd²
         return y
