@@ -2,12 +2,12 @@ import torch
 
 
 class RMSNorm(torch.nn.Module):
-    gain: torch.Tensor  # (d_model, )
+    weight: torch.Tensor  # (d_model, )
     eps: float
 
     def __init__(self, d_model: int, eps: float = 1e-5, device=None, dtype=None):
         super().__init__()
-        self.gain = torch.nn.parameter.Parameter(torch.ones(d_model, device=device, dtype=dtype))
+        self.weight = torch.nn.parameter.Parameter(torch.ones(d_model, device=device, dtype=dtype))
         self.eps = eps
 
     # x (batch_size, sequence_length, d_model)
@@ -17,5 +17,5 @@ class RMSNorm(torch.nn.Module):
         x_sqrd_mean = x.pow(2).mean(dim=-1, keepdim=True)  # (batch_size, sequence_length, 1)
         rms = torch.sqrt(x_sqrd_mean + self.eps)  # (batch_size, sequence_length, 1)
         # (batch_size, sequence_length, d_model) * (d_model, ) / (batch_size, sequence_length, 1)
-        result = x * self.gain / rms  # (batch_size, sequence_length, d_model)
+        result = x * self.weight / rms  # (batch_size, sequence_length, d_model)
         return result.to(in_dtype)
