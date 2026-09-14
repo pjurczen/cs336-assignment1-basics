@@ -3,7 +3,6 @@ import torch
 from cs336_basics.embedding import Embedding
 from cs336_basics.linear import Linear
 from cs336_basics.rms_norm import RMSNorm
-from cs336_basics.softmax import softmax
 from cs336_basics.transformer import TransformerBlock
 
 
@@ -29,5 +28,4 @@ class TransformerLM(torch.nn.Module):
             y = transformer(y)
         y = self.ln_final(y)
         y = self.lm_head(y)
-        y = softmax(y, -1)
         return y
