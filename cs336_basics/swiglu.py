@@ -18,7 +18,8 @@ class SwiGLU(torch.nn.Module):
 
     # x (batch_size, sequence_length, d_model)
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.w2(self._silu(self.w1(x)) * self.w3(x))
+        return self.w2(silu(self.w1(x)) * self.w3(x))
 
-    def _silu(self, x: torch.Tensor) -> torch.Tensor:
-        return x * torch.sigmoid(x)
+
+def silu(x: torch.Tensor) -> torch.Tensor:
+    return x * torch.sigmoid(x)
