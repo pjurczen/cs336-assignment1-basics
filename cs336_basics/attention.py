@@ -75,3 +75,51 @@ class CasualMultiHeadSelfAttention(torch.nn.Module):
         result = scaled_dot_product_attention(wq_x_i, wk_x_i, wv_x_i, casual_mask)  # (..., h, seq_len, d_v)
         result = rearrange(result, "... h seq_len d_v -> ... seq_len (h d_v)")
         return self.output_proj.forward(result)
+
+
+class CasualMultiHeadSelfAttentionOptimized(torch.nn.Module):
+    device: torch.device | None
+    d_k: int
+    d_v: int
+    d_model: int
+    num_heads: int
+    qkv_proj: Linear  # (hd_k + hd_k + hd_v, d_model)
+    output_proj: Linear  # (d_model, num_heads * d_v) = (d_model, hd_v)
+    rope: RotaryPositionalEmbedding | None
+
+    def __init__(self, d_model: int, num_heads: int, max_seq_len: int | None = None, theta: float | None = None, device: torch.device | None = None,
+                 dtype: torch.dtype | None = None):
+        super().__init__()
+        if d_model % num_heads != 0:
+            raise Exception("d_model must be divisible by num_heads!")
+        self.device = device
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.d_k = round(d_model / num_heads)
+        self.d_v = self.d_k
+        self.qkv_proj = Linear(d_model, num_heads * self.d_k + num_heads * self.d_k + num_heads * self.d_v, device, dtype)
+        self.output_proj = Linear(num_heads * self.d_v, d_model, device, dtype)
+        if max_seq_len is not None and theta is not None:
+            self.rope = RotaryPositionalEmbedding(theta, self.d_k, max_seq_len)
+        else:
+            self.rope = None
+
+    # x (..., seq_len, d_model)
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
+        seq_len = x.shape[-2]
+        casual_mask = (torch.tril(torch.ones(seq_len, seq_len, device=self.device)) == 1)
+        if token_positions is None:
+            token_positions = torch.arange(seq_len, device=self.device)
+        w_x = self.qkv_proj.forward(x)  # (..., seq_len, hd_k + hd_k + hd_v)
+        wq_x = w_x[..., :self.num_heads * self.d_k]
+        wk_x = w_x[..., self.num_heads * self.d_k:2 * self.num_heads * self.d_k]
+        wv_x = w_x[..., 2 * self.num_heads * self.d_k:]
+        wq_x_i = rearrange(wq_x, "... seq_len (h d_k) -> ... h seq_len d_k", h=self.num_heads)  # (..., h, seq_len, d_k)
+        wk_x_i = rearrange(wk_x, "... seq_len (h d_k) -> ... h seq_len d_k", h=self.num_heads)  # (..., h, seq_len, d_k)
+        wv_x_i = rearrange(wv_x, "... seq_len (h d_v) -> ... h seq_len d_v", h=self.num_heads)  # (..., h, seq_len, d_v)
+        if self.rope:
+            wq_x_i = self.rope.forward(wq_x_i, token_positions)
+            wk_x_i = self.rope.forward(wk_x_i, token_positions)
+        result = scaled_dot_product_attention(wq_x_i, wk_x_i, wv_x_i, casual_mask)  # (..., h, seq_len, d_v)
+        result = rearrange(result, "... h seq_len d_v -> ... seq_len (h d_v)")
+        return self.output_proj.forward(result)

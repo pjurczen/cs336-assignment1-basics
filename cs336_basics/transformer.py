@@ -1,13 +1,13 @@
 import torch
 
-from cs336_basics.attention import CasualMultiHeadSelfAttention
+from cs336_basics.attention import CasualMultiHeadSelfAttentionOptimized
 from cs336_basics.rms_norm import RMSNorm
 from cs336_basics.swiglu import SwiGLU
 
 
 class TransformerBlock(torch.nn.Module):
     ln1: RMSNorm
-    attn: CasualMultiHeadSelfAttention
+    attn: CasualMultiHeadSelfAttentionOptimized
 
     ffn: SwiGLU
     ln2: RMSNorm
@@ -16,7 +16,7 @@ class TransformerBlock(torch.nn.Module):
                  device: torch.device | None = None, dtype: torch.dtype | None = None):
         super().__init__()
         self.ln1 = RMSNorm(d_model, eps, device=device, dtype=dtype)
-        self.attn = CasualMultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta, device=device, dtype=dtype)
+        self.attn = CasualMultiHeadSelfAttentionOptimized(d_model, num_heads, max_seq_len, theta, device=device, dtype=dtype)
         self.ln2 = RMSNorm(d_model, eps, device=device, dtype=dtype)
         self.ffn = SwiGLU(d_model, d_ff, device=device, dtype=dtype)
 

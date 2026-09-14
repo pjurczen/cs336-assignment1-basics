@@ -9,7 +9,7 @@ import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
-from cs336_basics.attention import scaled_dot_product_attention, CasualMultiHeadSelfAttention
+from cs336_basics.attention import scaled_dot_product_attention, CasualMultiHeadSelfAttentionOptimized
 from cs336_basics.bpe_tokenizer import BpeTokenizer
 from cs336_basics.embedding import Embedding
 from cs336_basics.linear import Linear
@@ -155,9 +155,9 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    attention = CasualMultiHeadSelfAttention(d_model, num_heads)
-    attention.load_state_dict(state_dict={"q_proj.weight": q_proj_weight, "k_proj.weight": k_proj_weight, "v_proj.weight": v_proj_weight,
-                                          "output_proj.weight": o_proj_weight})
+    attention = CasualMultiHeadSelfAttentionOptimized(d_model, num_heads)
+    attention.load_state_dict(
+        state_dict={"qkv_proj.weight": torch.cat((q_proj_weight, k_proj_weight, v_proj_weight), dim=-2), "output_proj.weight": o_proj_weight})
     return attention.forward(in_features)
 
 
@@ -198,9 +198,9 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    attention = CasualMultiHeadSelfAttention(d_model, num_heads, max_seq_len, theta)
-    attention.load_state_dict(state_dict={"q_proj.weight": q_proj_weight, "k_proj.weight": k_proj_weight, "v_proj.weight": v_proj_weight,
-                                          "output_proj.weight": o_proj_weight})
+    attention = CasualMultiHeadSelfAttentionOptimized(d_model, num_heads, max_seq_len, theta)
+    attention.load_state_dict(
+        state_dict={"qkv_proj.weight": torch.cat((q_proj_weight, k_proj_weight, v_proj_weight), dim=-2), "output_proj.weight": o_proj_weight})
     return attention.forward(in_features, token_positions)
 
 
@@ -298,6 +298,10 @@ def run_transformer_block(
         running the Transformer block on the input features while using RoPE.
     """
     transformer = TransformerBlock(d_model=d_model, num_heads=num_heads, d_ff=d_ff, max_seq_len=max_seq_len, theta=theta)
+    q_proj_weight = weights.pop(f'attn.q_proj.weight')
+    k_proj_weight = weights.pop(f'attn.k_proj.weight')
+    v_proj_weight = weights.pop(f'attn.v_proj.weight')
+    weights[f"attn.qkv_proj.weight"] = torch.cat((q_proj_weight, k_proj_weight, v_proj_weight), dim=-2)
     transformer.load_state_dict(weights)
     return transformer(in_features)
 
@@ -382,6 +386,11 @@ def run_transformer_lm(
         next-word distribution for each token.
     """
     transformer_lm = TransformerLM(vocab_size, context_length, num_layers, d_model, num_heads, d_ff, theta=rope_theta)
+    for layer in range(num_layers):
+        q_proj_weight = weights.pop(f'layers.{layer}.attn.q_proj.weight')
+        k_proj_weight = weights.pop(f'layers.{layer}.attn.k_proj.weight')
+        v_proj_weight = weights.pop(f'layers.{layer}.attn.v_proj.weight')
+        weights[f"layers.{layer}.attn.qkv_proj.weight"] = torch.cat((q_proj_weight, k_proj_weight, v_proj_weight), dim=-2)
     transformer_lm.load_state_dict(weights)
     return transformer_lm(in_indices)
 
