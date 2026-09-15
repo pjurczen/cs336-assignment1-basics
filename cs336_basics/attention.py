@@ -63,18 +63,18 @@ class CasualMultiHeadSelfAttention(torch.nn.Module):
         casual_mask = (torch.tril(torch.ones(seq_len, seq_len, device=self.device)) == 1)
         if token_positions is None:
             token_positions = torch.arange(seq_len, device=self.device)
-        wq_x = self.q_proj.forward(x)  # (..., seq_len, hd_k)
-        wk_x = self.k_proj.forward(x)  # (..., seq_len, hd_k)
-        wv_x = self.v_proj.forward(x)  # (..., seq_len, hd_v)
+        wq_x = self.q_proj(x)  # (..., seq_len, hd_k)
+        wk_x = self.k_proj(x)  # (..., seq_len, hd_k)
+        wv_x = self.v_proj(x)  # (..., seq_len, hd_v)
         wq_x_i = rearrange(wq_x, "... seq_len (h d_k) -> ... h seq_len d_k", h=self.num_heads)  # (..., h, seq_len, d_k)
         wk_x_i = rearrange(wk_x, "... seq_len (h d_k) -> ... h seq_len d_k", h=self.num_heads)  # (..., h, seq_len, d_k)
         wv_x_i = rearrange(wv_x, "... seq_len (h d_v) -> ... h seq_len d_v", h=self.num_heads)  # (..., h, seq_len, d_v)
         if self.rope:
-            wq_x_i = self.rope.forward(wq_x_i, token_positions)
-            wk_x_i = self.rope.forward(wk_x_i, token_positions)
+            wq_x_i = self.rope(wq_x_i, token_positions)
+            wk_x_i = self.rope(wk_x_i, token_positions)
         result = scaled_dot_product_attention(wq_x_i, wk_x_i, wv_x_i, casual_mask)  # (..., h, seq_len, d_v)
         result = rearrange(result, "... h seq_len d_v -> ... seq_len (h d_v)")
-        return self.output_proj.forward(result)
+        return self.output_proj(result)
 
 
 class CasualMultiHeadSelfAttentionOptimized(torch.nn.Module):
@@ -110,7 +110,7 @@ class CasualMultiHeadSelfAttentionOptimized(torch.nn.Module):
         casual_mask = (torch.tril(torch.ones(seq_len, seq_len, device=self.device)) == 1)
         if token_positions is None:
             token_positions = torch.arange(seq_len, device=self.device)
-        w_x = self.qkv_proj.forward(x)  # (..., seq_len, hd_k + hd_k + hd_v) => [FLOPs] (b, n, d) @ (d, 3d) = 6bnd²
+        w_x = self.qkv_proj(x)  # (..., seq_len, hd_k + hd_k + hd_v) => [FLOPs] (b, n, d) @ (d, 3d) = 6bnd²
         wq_x = w_x[..., :self.num_heads * self.d_k]
         wk_x = w_x[..., self.num_heads * self.d_k:2 * self.num_heads * self.d_k]
         wv_x = w_x[..., 2 * self.num_heads * self.d_k:]
@@ -118,8 +118,8 @@ class CasualMultiHeadSelfAttentionOptimized(torch.nn.Module):
         wk_x_i = rearrange(wk_x, "... seq_len (h d_k) -> ... h seq_len d_k", h=self.num_heads)  # (..., h, seq_len, d_k)
         wv_x_i = rearrange(wv_x, "... seq_len (h d_v) -> ... h seq_len d_v", h=self.num_heads)  # (..., h, seq_len, d_v)
         if self.rope:
-            wq_x_i = self.rope.forward(wq_x_i, token_positions)
-            wk_x_i = self.rope.forward(wk_x_i, token_positions)
+            wq_x_i = self.rope(wq_x_i, token_positions)
+            wk_x_i = self.rope(wk_x_i, token_positions)
         result = scaled_dot_product_attention(wq_x_i, wk_x_i, wv_x_i, casual_mask)  # (..., h, seq_len, d_v) => [FLOPs] 4bn²d
         result = rearrange(result, "... h seq_len d_v -> ... seq_len (h d_v)")
-        return self.output_proj.forward(result)  # => [FLOPs] (b, n, d) @ (d, d) = 2bnd²
+        return self.output_proj(result)  # => [FLOPs] (b, n, d) @ (d, d) = 2bnd²
