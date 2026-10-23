@@ -138,8 +138,59 @@ all layers together: (27'682'406'400 + 42'152'755'200) × 48 = 3'352'087'756'800
 output projection: [FLOPs] 2bnd × vocab_size = 2 × 1024 × 1600 × 50257 = 164'682'137'600 ≈ 5% of FLOPs
 
 **(d)**
-GPT-2 small (12 layers, 768 d_model, 12 heads)
 
-GPT-2 medium (24 layers, 1024 d_model, 16 heads)
+**GPT-2 small** (12 layers, 768 d_model, 12 heads, d_ff 2048)
 
-GPT-2 large (36 layers, 1280 d_model, 20 heads)
+self-attention: [FLOPs] 8 bnd² + 4bn²d = 8.05E+09
+- for all layers: 9.66E+10 ≈ 33.13% of FLOPs
+- qkv projections: 6bnd² = 3.62E+09 ≈ 45.00% of attention FLOPs
+- scaled dot product attention: 4bn²d = 3.22E+09 ≈ 40.00% of attention FLOPs
+- attention output projection: 2bnd² = 1.21E+09 ≈ 15.00% of attention FLOPs
+
+ffn in transformer block: [FLOPs] 16 bnd² or 6 bnd d_ff = 9.66E+09
+- for all layers: 1.16E+11 ≈ 39.76% of FLOPs
+
+all layers together: (8.05E+09 + 9.66E+09) × 12 = 2.13E+11
+
+output projection: [FLOPs] 2bnd × vocab_size = 7.90E+10 ≈ 27.10% of FLOPs
+
+total forward pass: 2.92E+11 FLOPs
+
+**GPT-2 medium** (24 layers, 1024 d_model, 16 heads, d_ff 2752)
+
+self-attention: [FLOPs] 8 bnd² + 4bn²d = 1.29E+10
+- for all layers: 3.09E+11 ≈ 37.25% of FLOPs
+- qkv projections: 6bnd² = 6.44E+09 ≈ 50.00% of attention FLOPs
+- scaled dot product attention: 4bn²d = 4.29E+09 ≈ 33.33% of attention FLOPs
+- attention output projection: 2bnd² = 2.15E+09 ≈ 16.67% of attention FLOPs
+
+ffn in transformer block: [FLOPs] 16 bnd² or 6 bnd d_ff = 1.73E+10
+- for all layers: 4.16E+11 ≈ 50.05% of FLOPs
+
+all layers together: (1.29E+10 + 1.73E+10) × 24 = 7.25E+11
+
+output projection: [FLOPs] 2bnd × vocab_size = 1.05E+11 ≈ 12.70% of FLOPs
+
+total forward pass: 8.30E+11 FLOPs
+
+**GPT-2 large** (36 layers, 1280 d_model, 20 heads, d_ff 3392)
+
+self-attention: [FLOPs] 8 bnd² + 4bn²d = 1.88E+10
+- for all layers: 6.76E+11 ≈ 38.25% of FLOPs
+- qkv projections: 6bnd² = 1.01E+10 ≈ 53.57% of attention FLOPs
+- scaled dot product attention: 4bn²d = 5.37E+09 ≈ 28.57% of attention FLOPs
+- attention output projection: 2bnd² = 3.36E+09 ≈ 17.86% of attention FLOPs
+
+ffn in transformer block: [FLOPs] 16 bnd² or 6 bnd d_ff = 2.67E+10
+- for all layers: 9.60E+11 ≈ 54.30% of FLOPs
+
+all layers together: (1.88E+10 + 2.67E+10) × 36 = 1.64E+12
+
+output projection: [FLOPs] 2bnd × vocab_size = 1.32E+11 ≈ 7.45% of FLOPs
+
+total forward pass: 1.77E+12 FLOPs
+
+Conclusion: Output projection part of FLOPs decreases from 27% to 5% with increasing model size.
+Feed-forward transformer layers increase from 40% to 57% with increasing model size.
+For GPT-2 small the proportion of output projection to feed-forward transformer layers is roughly 68:100, for GPT-2 XL it's 8:100.
+The attention part of total FLOPs increases from 33% to 38% with increasing model size. 
