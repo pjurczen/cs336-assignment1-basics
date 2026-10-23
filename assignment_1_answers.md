@@ -194,3 +194,13 @@ Conclusion: Output projection part of FLOPs decreases from 27% to 5% with increa
 Feed-forward transformer layers increase from 40% to 57% with increasing model size.
 For GPT-2 small the proportion of output projection to feed-forward transformer layers is roughly 68:100, for GPT-2 XL it's 8:100.
 The attention part of total FLOPs increases from 33% to 38% with increasing model size. 
+
+**(e)**
+
+When increasing context length to 16,384 the total FLOPs increase to 1.34E+14 roughly 40x compared to 1024 context length.
+The contribution of model component changes as following:
+- attention: 38% -> 74% increase
+- ffn transformer layers: 58% -> 24% decrease
+- output projection: 5% -> 2% decrease
+
+That's expected and caused by quadratic term of input sequence in scaled dot product attention matmul.
