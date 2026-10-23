@@ -107,3 +107,14 @@ enough than our vocab size of 32k and saves us a lot of space by only taking 2 b
 to python int object which would take 28 bytes for every number in our 0-32k range. uint8 would be only
 256 numbers which is too little, uint32 would be just bigger range (and therefore bigger file size) with
 no need.
+
+## 3.5 Problem (transformer_accounting): Transformer LM resource accounting
+
+**(a)** 1,640,452,800 parameters. This would require 6.56GB memory to load the model assuming float32 for every parameter.
+
+**(b)** For our GPT-2 XL-shaped model the FLOPs can be calculated as 8 bnd²l + 4bn²dl + 6 bnd × d_ff × l + 2bnd × vocab_size
+which for one sequence and context_length tokens means b=1 and n=context_length therefore:
+8 × 1 × 1024 × 1600² × 48 + 4 × 1 × 1024² × 1600 × 48 + 6 × 1 × 1024 × 1600 × 4288 × 48 + 2 × 1 × 1024 × 1600 × 50257 =
+= 3'516'769'894'400 FLOPs ≈ 3.5 × 10¹² FLOPs
+
+**(c)** 

@@ -20,6 +20,7 @@ class SwiGLU(torch.nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.w2(silu(self.w1(x)) * self.w3(
             x))  # => [FLOPs] (b, n, d) @ (8/3 d, d) + (b, n, d) @ (8/3 d, d) + (d, 8/3 d) @ (b, n, 8/3 d) = 16/3 bnd² + 16/3 bnd² + 16/3 bnd² = 16 bnd²
+    # => [FLOPs] (b, n, d) @ (d_ff, d) + (b, n, d) @ (d_ff, d) + (d, d_ff) @ (b, n, d_ff) = 2bndd_ff + 2 bndd_ff + 2 bndd_ff = 6 bndd_ff
 
 
 def silu(x: torch.Tensor) -> torch.Tensor:

@@ -20,7 +20,7 @@ class TransformerBlock(torch.nn.Module):
         self.ln2 = RMSNorm(d_model, eps, device=device, dtype=dtype)
         self.ffn = SwiGLU(d_model, d_ff, device=device, dtype=dtype)
 
-    def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:  # => [FLOPS] 8 bnd² + 4bn²d + 6 bndd_ff
         y = x + self.attn(self.ln1(x), token_positions)  # => [FLOPs] 8 bnd² + 4bn²d
-        y = y + self.ffn(self.ln2(y))  # => [FLOPs] 16 bnd²
+        y = y + self.ffn(self.ln2(y))  # => [FLOPs] 16 bnd² / 6 bnd d_ff
         return y

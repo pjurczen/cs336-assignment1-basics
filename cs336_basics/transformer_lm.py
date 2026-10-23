@@ -22,10 +22,11 @@ class TransformerLM(torch.nn.Module):
         self.lm_head = Linear(d_model, vocab_size, device=device, dtype=dtype)
         pass
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:  # => [FLOPs] 24 bnd²l + 4bn²dl + 2bnd * vocab_size
+    def forward(self,
+                x: torch.Tensor) -> torch.Tensor:  # => [FLOPs] 24 bnd²l + 4bn²dl + 2bnd * vocab_size / 8 bnd²l + 4bn²dl + 6 bnd d_ff l + 2bnd * vocab_size
         y = self.token_embeddings(x)
-        for transformer in self.layers:  # => [FLOPs] 24 bnd²l + 4bn²dl
-            y = transformer(y)  # => [FLOPs] 24 bnd² + 4bn²d
+        for transformer in self.layers:  # => [FLOPs] 24 bnd²l + 4bn²dl / 8 bnd²l + 4bn²dl + 6 bnd d_ff l
+            y = transformer(y)  # => [FLOPs] 24 bnd² + 4bn²d / 8 bnd² + 4bn²d + 6 bnd d_ff
         y = self.ln_final(y)
         y = self.lm_head(y)  # => [FLOPs] (b, n, d) @ (d, vocab_size) = 2bnd * vocab_size
         return y
