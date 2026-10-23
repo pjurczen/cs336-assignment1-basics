@@ -204,3 +204,8 @@ The contribution of model component changes as following:
 - output projection: 5% -> 2% decrease
 
 That's expected and caused by quadratic term of input sequence in scaled dot product attention matmul.
+
+## 4.2 Problem (learning_rate_tuning): Tuning the learning rate
+
+For lr 1e1 the loss was decaying much faster than with lr=1, with lr=1e2 it was first decaying very quickly but then increasing and varying around small range.
+With lr=1e3 the training loss was diverging after 2 iterations already and increasing to very big loss over further iterations.
