@@ -115,6 +115,17 @@ no need.
 **(b)** For our GPT-2 XL-shaped model the FLOPs can be calculated as 8 bnd²l + 4bn²dl + 6 bnd × d_ff × l + 2bnd × vocab_size
 which for one sequence and context_length tokens means b=1 and n=context_length therefore:
 8 × 1 × 1024 × 1600² × 48 + 4 × 1 × 1024² × 1600 × 48 + 6 × 1 × 1024 × 1600 × 4288 × 48 + 2 × 1 × 1024 × 1600 × 50257 =
+=
 = 3'516'769'894'400 FLOPs ≈ 3.5 × 10¹² FLOPs
 
-**(c)** 
+**(c)**
+self-attention: [FLOPs] 8 bnd² + 4bn²d = 8 × 1024 × 1600² + 4 × 1024² × 1600 = 27'682'406'400
+ffn in transformer block: [FLOPs] 16 bnd² / 6 bnd d_ff = 6 × 1024 × 1600 × 4288 = 42'152'755'200
+all layers together: (27'682'406'400 + 42'152'755'200) × 48 = 3'352'087'756'800
+output projection: 2 × 1024 × 1600 × 50257 = 164'682'137'600
+
+For the given parameters and input sequence length single most expensive component is the output projection,
+but calculating all 48 layers stacked together generate much more FLOPs than output projection. Within a single transformer layer
+the most expensive part is the feed-forward: 16d vs. 8d + 4n ratio, with small input sequence feed-forward is more expensive,
+from n=2d its equal and above dominates compute.
+

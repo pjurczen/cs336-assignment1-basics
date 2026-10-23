@@ -25,8 +25,8 @@ class TransformerLM(torch.nn.Module):
     def forward(self,
                 x: torch.Tensor) -> torch.Tensor:  # => [FLOPs] 24 bnd²l + 4bn²dl + 2bnd * vocab_size / 8 bnd²l + 4bn²dl + 6 bnd d_ff l + 2bnd * vocab_size
         y = self.token_embeddings(x)
-        for transformer in self.layers:  # => [FLOPs] 24 bnd²l + 4bn²dl / 8 bnd²l + 4bn²dl + 6 bnd d_ff l
+        for transformer in self.layers:  # => [FLOPs] 24 bnd²l + 4bn²dl / 8 bnd²l + 4bn²dl + 6 bnd d_ff l = (27'682'406'400 + 42'152'755'200) × 48 = 3'352'087'756'800
             y = transformer(y)  # => [FLOPs] 24 bnd² + 4bn²d / 8 bnd² + 4bn²d + 6 bnd d_ff
         y = self.ln_final(y)
-        y = self.lm_head(y)  # => [FLOPs] (b, n, d) @ (d, vocab_size) = 2bnd * vocab_size
+        y = self.lm_head(y)  # => [FLOPs] (b, n, d) @ (d, vocab_size) = 2bnd * vocab_size = 2 × 1024 × 1600 × 50257 = 164'682'137'600
         return y
