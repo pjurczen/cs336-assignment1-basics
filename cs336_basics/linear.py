@@ -14,4 +14,4 @@ class Linear(torch.nn.Module):
         torch.nn.init.trunc_normal_(tensor=self.weight, mean=0, std=std, a=-3 * std, b=3 * std)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return einsum(x, self.weight, "... in, out in -> ... out")
+        return einsum(x, self.weight, "... d_in, d_out d_in -> ... d_out")
