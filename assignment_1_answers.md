@@ -269,5 +269,32 @@ Optimizer state:
 2 parameters for each parameter, so 2P
 
 Total: A + 4P = num_layers × (56/3 bnd + 2bhn²) + bnd + 2bn vocab_size + 4 × (2 × d × vocab_size + num_layers × (12d² + 2d) + d) =
-num_layers × (56/3 bnd + 2bhn²) + bnd + 2bn vocab_size + 8 d × vocab_size + num_layers × (12d² + 2d) + 4d
+num_layers × (56/3 bnd + 2bhn²) + bnd + 2bn vocab_size + 8 d × vocab_size + 4 × num_layers × (12d² + 2d) + 4d
 
+**(b)**
+
+For GPT-2 XL-shaped model:
+vocab_size: 50,257
+context_length: 1,024
+num_layers: 48
+d_model: 1,600
+num_heads: 25
+
+Total:
+1'468'006'400 × batch_size + 2'516'582'400 × batch_size + 1'638'400 × batch_size + 102'926'336 × batch_size + 643'289'600 + 4 × 1'474'713'600 + 6400 =
+3'984'588'800 × batch_size + 1'638'400 × batch_size + 102'926'336 × batch_size + 6'542'150'400 =
+4'089'153'536 × batch_size + 6'542'150'400
+
+a=4'089'153'536
+b=6'542'150'400
+
+80 GiB = 85'899'345'920 bytes
+
+(4'089'153'536 × batch_size + 6'542'150'400) × 4 bytes = 16'356'614'144 × batch_size + 26'168'601'600 bytes
+
+solving for batch_size:
+16'356'614'144 × batch_size + 26'168'601'600 = 85'899'345'920
+16'356'614'144 × batch_size = 59'730'744'320
+batch_size = 3.6517792615
+
+rounding down answer is batch_size=3
