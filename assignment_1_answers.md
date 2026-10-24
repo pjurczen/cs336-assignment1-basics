@@ -298,3 +298,17 @@ solving for batch_size:
 batch_size = 3.6517792615
 
 rounding down answer is batch_size=3
+
+**(c)**
+
+Breakdown of FLOPs in AdamW optimizer step:
+𝜃 ← 𝜃 − 𝛼𝜆𝜃 => 1 𝜃 tensor multiplication by scalar and one subtraction => 2 FLOPs per param
+𝑚 ← 𝛽1𝑚 + (1 − 𝛽1)𝑔 => 1 𝑔 tensor multiplication by scalar, 1 𝑚 tensor multiplication by scalar and a sum => 3 FLOPs per param
+𝑣 ← 𝛽2𝑣 + (1 − 𝛽2)𝑔2 => 1 𝑔 tensor multiplication by 𝑔 tensor, 1 𝑔² tensor multiplication by scalar, 1 𝑣 tensor multiplication by scalar and a sum => 1 + 1 +
+1 + 1 = 4 FLOPs per param
+𝜃 ← 𝜃 − 𝛼𝑡 𝑚/√𝑣+𝜀 => 1 𝑣 tensor square-root, 1 𝑣 tensor sum with scalar, 1 𝑚 tensor division by √𝑣+𝜀 tensor, 1 𝑚/√𝑣+𝜀 tensor multiplication by scalar 𝛼𝑡, 1
+subtraction => 1 + 1 + 1 + 1 + 1 => 5 FLOPs per param
+
+Total: 14 FLOPs per param
+or 28 × d_model × vocab_size + 14 × num_layers × (12 × d_model² + 2 × d_model) + 14 × d_model =
+or 28 × d_model × vocab_size + 168 × num_layers × d_model² + 28 × num_layers × d_model + 14 × d_model
