@@ -209,3 +209,65 @@ That's expected and caused by quadratic term of input sequence in scaled dot pro
 
 For lr 1e1 the loss was decaying much faster than with lr=1, with lr=1e2 it was first decaying very quickly but then increasing and varying around small range.
 With lr=1e3 the training loss was diverging after 2 iterations already and increasing to very big loss over further iterations.
+
+## 4.3 Problem (adamw_accounting): Resource accounting for training with AdamW
+
+**(a)**
+
+Activations:
+
+Transformer block: 2bnd + 5bnd + 2bhn² + bn 35/3d = 56/3 bnd + 2bhn²
+
+- 2 RMSNorms: 2 × batch_size × context_length × d_model = 2bnd
+- Multi-head self-attention sublayer: 3bnd + bhn² + bhn² + bnd + bnd = 5bnd + 2bhn²
+    - 𝑄𝐾𝑉 projections: 3 × batch_size × context_length × d_model
+    - 𝑄𝐾⊤ matrix multiply: batch_size × num_heads × context_length²
+    - softmax: batch_size × num_heads × context_length²
+    - weighted sum of values: batch_size × context_length × d_model
+    - output projection: batch_size × context_length × d_model
+- Position-wise feed-forward (SwiGLU): bn 8/3d + bnd + bn 8/3d + bn 8/3d + bn 8/3d = bn 35/3d
+    - 𝑊_1: batch_size × context_length × 8/3 × d_model
+    - 𝑊_2: batch_size × context_length × d_model
+    - SiLU on the gate branch: batch_size × context_length × 8/3 × d_model
+    - element-wise product: batch_size × context_length × 8/3 × d_model
+    - 𝑊_3: batch_size × context_length × 8/3 × d_model
+
+Final RMSNorm: batch_size × context_length × d_model = bnd
+
+Output embedding: batch_size × context_length × vocab_size = bn vocab_size
+
+Cross-entropy on logits: batch_size × context_length × vocab_size = bn vocab_size
+
+Total activations: num_layers × (56/3 bnd + 2bhn²) + bnd + 2bn vocab_size
+lets call it expression A
+
+Parameters:
+
+Token embeddings: vocab_size × d_model
+
+Transformer block: 4 × d_model² + 2 × d_model + 3 × d_model × d_ff
+
+- 2 RMSNorms: 2 × d_model
+- Multi-head self-attention sublayer:
+    - 𝑄𝐾𝑉 projections: 3 × d_model²
+    - output projection: d_model²
+- Position-wise feed-forward (SwiGLU): 3 × d_model × d_ff
+
+Final RMSNorm: d_model
+
+Output embedding: d_model × vocab_size
+
+Total: 2 × d_model × vocab_size + num_layers × (4 × d_model² + 2 × d_model + 3 × d_model × d_ff) + d_model
+for d_ff = 8/3 d_model:
+2 × d_model × vocab_size + num_layers × (12 × d_model² + 2 × d_model) + d_model
+lets call it as expression P
+
+Gradients: exact same as parameters count so P
+
+Optimizer state:
+
+2 parameters for each parameter, so 2P
+
+Total: A + 4P = num_layers × (56/3 bnd + 2bhn²) + bnd + 2bn vocab_size + 4 × (2 × d × vocab_size + num_layers × (12d² + 2d) + d) =
+num_layers × (56/3 bnd + 2bhn²) + bnd + 2bn vocab_size + 8 d × vocab_size + num_layers × (12d² + 2d) + 4d
+
