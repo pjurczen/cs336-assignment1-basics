@@ -312,3 +312,26 @@ subtraction => 1 + 1 + 1 + 1 + 1 => 5 FLOPs per param
 Total: 14 FLOPs per param
 or 28 × d_model × vocab_size + 14 × num_layers × (12 × d_model² + 2 × d_model) + 14 × d_model =
 or 28 × d_model × vocab_size + 168 × num_layers × d_model² + 28 × num_layers × d_model + 14 × d_model
+
+**(d)**
+
+50% of 495 teraFLOP/s = 247.5 teraFLOP/s
+
+To calculate total FLOPs: forward + backward + optimizer = 1 forward + 2 forward + optimizer
+
+For GPT-2 XL a forward pass costs: 8 bnd²l + 4bn²dl + 6 bnd × d_ff × l + 2bnd × vocab_size =
+8 × 1024 × 1024 × 1600² × 48 + 4 × 1024 × 1024² × 1600 × 48 + 6 × 1024 × 1024 × 1600 × 4288 × 48 + 2 × 1024 × 1024 × 1600 × 50257 =
+3'601'172'371'865'600 FLOPs ≈ 3.6 × 10¹⁵ FLOPs
+
+Optimizer step costs:
+28 × d_model × vocab_size + 168 × num_layers × d_model² + 28 × num_layers × d_model + 14 × d_model =
+28 × 1600 × 50257 + 168 × 48 × 1600² + 28 × 48 × 1600 + 14 × 1600 =
+22'897'526'400 FLOPs ≈ 23 × 10⁹ FLOPs
+
+So a single step costs in total:
+3 × 3.6 × 10¹⁵ FLOPs + 23 × 10⁹ FLOPs ≈ 1.08 × 10¹⁶ FLOPs
+The optimizer step cost is negligible compared to forward + backward pass cost.
+
+To train 400k steps: 400'000 × 1.08 × 10¹⁶ FLOPs / 247.5 × 10¹² FLOP/s ≈
+≈ 17'461'010 s ≈ 4'850 h ≈ 202 days
+
