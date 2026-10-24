@@ -12,6 +12,7 @@ from torch import Tensor
 from cs336_basics.adamw_optimizer import AdamW
 from cs336_basics.attention import scaled_dot_product_attention, CasualMultiHeadSelfAttentionOptimized
 from cs336_basics.bpe_tokenizer import BpeTokenizer
+from cs336_basics.checkpoint import save_checkpoint, load_checkpoint
 from cs336_basics.cross_entropy import cross_entropy
 from cs336_basics.data_loading import get_batch
 from cs336_basics.embedding import Embedding
@@ -559,7 +560,7 @@ def run_save_checkpoint(
             we've completed.
         out (str | os.PathLike | BinaryIO | IO[bytes]): Path or file-like object to serialize the model, optimizer, and iteration to.
     """
-    raise NotImplementedError
+    save_checkpoint(model, optimizer, iteration, out)
 
 
 def run_load_checkpoint(
@@ -580,7 +581,7 @@ def run_load_checkpoint(
     Returns:
         int: the previously-serialized number of iterations.
     """
-    raise NotImplementedError
+    return load_checkpoint(src, model, optimizer)
 
 
 def get_tokenizer(
