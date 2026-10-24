@@ -14,6 +14,7 @@ from cs336_basics.attention import scaled_dot_product_attention, CasualMultiHead
 from cs336_basics.bpe_tokenizer import BpeTokenizer
 from cs336_basics.cross_entropy import cross_entropy
 from cs336_basics.embedding import Embedding
+from cs336_basics.gradient import gradient_clipping
 from cs336_basics.learning_rate import cosine_lr_schedule
 from cs336_basics.linear import Linear
 from cs336_basics.rms_norm import RMSNorm
@@ -503,7 +504,7 @@ def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm:
 
     The gradients of the parameters (parameter.grad) should be modified in-place.
     """
-    raise NotImplementedError
+    gradient_clipping(parameters, max_l2_norm)
 
 
 def get_adamw_cls() -> Any:
