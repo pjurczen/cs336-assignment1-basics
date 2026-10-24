@@ -4,7 +4,7 @@ from typing import Optional, Callable, Iterable
 import torch
 
 
-class AdamW(torch.optim.Optimizer):
+class AdamWOptimizer(torch.optim.Optimizer):
 
     def __init__(self, params: Iterable[torch.nn.Parameter], lr=1e-3, weight_decay=0.01, betas=(0.9, 0.999), eps=1e-8) -> None:
         if lr < 0:

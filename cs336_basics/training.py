@@ -1,10 +1,106 @@
 import argparse
+import json
+import os
+from datetime import datetime
 
-ITER_CHECKPOINT = 200
+import numpy as np
+import torch.optim
+
+from cs336_basics.adamw_optimizer import AdamWOptimizer
+from cs336_basics.checkpoint import load_checkpoint, save_checkpoint
+from cs336_basics.cross_entropy import cross_entropy
+from cs336_basics.data_loading import get_batch
+from cs336_basics.gradient import gradient_clipping
+from cs336_basics.learning_rate import cosine_lr_schedule
+from cs336_basics.transformer_lm import TransformerLM
 
 
-def training(batch_size: int, lr: float):
-    pass
+def training(args: argparse.Namespace):
+    iteration: int = 1
+
+    run_dir = os.path.join(args.runs_dir, args.run_name)
+    checkpoints_dir = os.path.join(run_dir, "checkpoints")
+    os.makedirs(checkpoints_dir, exist_ok=True)
+    with open(os.path.join(run_dir, "config.json"), "w") as f:
+        json.dump(vars(args), f, indent=2)
+    print(f"Run directory: {run_dir}")
+
+    model: torch.nn.Module = TransformerLM(
+        vocab_size=args.model_vocab_size,
+        context_length=args.model_context_length,
+        num_layers=args.model_num_layers,
+        d_model=args.model_d_model,
+        num_heads=args.model_num_heads,
+        d_ff=args.model_d_ff,
+        eps=args.model_eps,
+        theta=args.model_rope_theta,
+        device=args.device,
+        dtype=torch.float32
+    )
+
+    optimizer: torch.optim.Optimizer = AdamWOptimizer(
+        params=model.parameters(),
+        lr=args.optimizer_lr_min,
+        weight_decay=args.optimizer_weight_decay,
+        betas=(args.optimizer_beta1, args.optimizer_beta2),
+        eps=args.optimizer_eps,
+    )
+
+    if args.checkpoint_src:
+        print("Loading checkpoint...")
+        iteration = load_checkpoint(args.checkpoint_src, model, optimizer)
+        print(f"Resuming from iteration {iteration}/{args.iter}")
+        iteration += 1
+
+    train_dataset = np.load(file=args.train_data, mmap_mode='r')
+    val_dataset = np.load(file=args.val_data, mmap_mode='r') if args.val_data else None
+
+    for it in range(iteration, args.iter + 1):
+        inputs, targets = get_batch(dataset=train_dataset, batch_size=args.batch_size, context_length=args.model_context_length, device=args.device,
+                                    dtype=torch.long)
+
+        prediction: torch.Tensor = model(inputs)
+
+        loss: torch.Tensor = cross_entropy(prediction, targets)
+        loss.backward()
+
+        l2_norm: float = gradient_clipping(parameters=model.parameters(), max_l2_norm=args.gradient_max_l2_norm, eps=args.gradient_eps)
+
+        if it % args.log_interval == 0 or it == args.iter:
+            print(f"{it}/{args.iter} Training loss: {loss.item()}")
+            print(f"{it}/{args.iter} L2-norm: {l2_norm}")
+
+        lr: float = cosine_lr_schedule(
+            t=it,
+            lr_max=args.optimizer_lr_max,
+            lr_min=args.optimizer_lr_min,
+            warmup_iters=args.optimizer_warmup_iters,
+            cosine_cycle_iters=args.optimizer_cosine_cycle_iters,
+        )
+        for group in optimizer.param_groups:
+            group["lr"] = lr
+
+        optimizer.step()
+        optimizer.zero_grad()
+
+        if it % args.checkpoints_iter == 0 or it == args.iter:
+            save_checkpoint(model, optimizer, it, os.path.join(checkpoints_dir, f"ckpt_{it}.pt"))
+            print(f"{it}/{args.iter} Saving checkpoint...")
+
+        with torch.no_grad():
+            if val_dataset is not None and (it % args.val_interval == 0 or it == args.iter):
+                val_loss_sum: float = 0
+                for i in range(args.val_batches):
+                    val_inputs, val_targets = get_batch(dataset=val_dataset, batch_size=args.batch_size, context_length=args.model_context_length,
+                                                        device=args.device, dtype=torch.long)
+
+                    val_prediction = model(val_inputs)
+                    val_loss_sum += cross_entropy(val_prediction, val_targets).item()
+
+                val_loss = val_loss_sum / args.val_batches
+
+                print(f"{it}/{args.iter} Validation loss: {val_loss}")
+
 
 
 if __name__ == "__main__":
@@ -35,15 +131,20 @@ if __name__ == "__main__":
     arg_parser.add_argument("--val_batches", type=int, default=32)
     arg_parser.add_argument("--val_interval", type=int, default=200)
     arg_parser.add_argument("--log_interval", type=int, default=100)
-    arg_parser.add_argument("--checkpoints_out", type=str, required=True)
+    arg_parser.add_argument("--runs_dir", type=str, default="runs")
+    arg_parser.add_argument("--run_name", type=str, default=None)
     arg_parser.add_argument("--checkpoints_iter", type=int, default=100)
     arg_parser.add_argument("--checkpoint_src", type=str, default=None)
     args = arg_parser.parse_args()
 
-    optimizer_warmup_iters = args.optimizer_warmup_iters if args.optimizer_warmup_iters is not None else args.iter // 50
-    optimizer_cosine_cycle_iters = args.optimizer_cosine_cycle_iters if args.optimizer_cosine_cycle_iters is not None else args.iter
+    if args.optimizer_warmup_iters is None:
+        args.optimizer_warmup_iters = args.iter // 50
+    if args.optimizer_cosine_cycle_iters is None:
+        args.optimizer_cosine_cycle_iters = args.iter
+    if args.run_name is None:
+        args.run_name = datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
     assert args.optimizer_lr_min <= args.optimizer_lr_max
-    assert optimizer_warmup_iters < optimizer_cosine_cycle_iters <= args.iter
+    assert args.optimizer_warmup_iters < args.optimizer_cosine_cycle_iters <= args.iter
 
-    training(batch_size=args.batch_size, lr=args.optimizer_lr, )
+    training(args)

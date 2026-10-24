@@ -10,6 +10,5 @@ def gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: flo
     if l2_norm >= max_l2_norm:
         scaling_factor = max_l2_norm / (l2_norm + eps)
         for param in params:
-            if param.grad is not None:
-                param.grad = param.grad.multiply(scaling_factor)
+            param.grad = param.grad.multiply(scaling_factor)
     return l2_norm

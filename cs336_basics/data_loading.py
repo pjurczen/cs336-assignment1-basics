@@ -4,7 +4,7 @@ import torch
 from einops import rearrange
 
 
-def get_batch(dataset: npt.NDArray, batch_size: int, context_length: int, device: str) -> tuple[torch.Tensor, torch.Tensor]:
+def get_batch(dataset: npt.NDArray, batch_size: int, context_length: int, device: str, dtype: torch.dtype | None = None) -> tuple[torch.Tensor, torch.Tensor]:
     indices = np.random.randint(0, dataset.size - context_length, size=batch_size)
     indices = rearrange(indices, "... -> ... 1")
 
@@ -17,8 +17,7 @@ def get_batch(dataset: npt.NDArray, batch_size: int, context_length: int, device
     inputs = dataset[input_sequences]
     targets = dataset[target_sequences]
 
-    # dtype=torch.uint16 could be used but tests fail
-    inputs_tensor = torch.tensor(inputs, device=device)
-    targets_tensor = torch.tensor(targets, device=device)
+    inputs_tensor = torch.tensor(inputs, device=device, dtype=dtype)
+    targets_tensor = torch.tensor(targets, device=device, dtype=dtype)
 
     return inputs_tensor, targets_tensor
