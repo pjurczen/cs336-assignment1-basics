@@ -62,8 +62,9 @@ def decoding(args: argparse.Namespace):
                 context.append(next_token_id)
                 generated_tokens += 1
 
-                next_token: str = tokenizer.decode([next_token_id])
-                print(next_token, end="", flush=True)
+                if next_token_id not in special_token_ids:
+                    next_token: str = tokenizer.decode([next_token_id])
+                    print(next_token, end="", flush=True)
         print()
 
 
