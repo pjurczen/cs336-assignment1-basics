@@ -59,61 +59,86 @@ def training(args: argparse.Namespace):
     train_dataset = np.load(file=args.train_data, mmap_mode='r')
     val_dataset = np.load(file=args.val_data, mmap_mode='r') if args.val_data else None
 
-    t0 = time.perf_counter()
-    if elapsed_time is not None:
-        t0 -= elapsed_time
+    with open(os.path.join(run_dir, "metrics.jsonl"), "a") as metric_file:
 
-    for it in range(iteration, args.iter + 1):
-        inputs, targets = get_batch(dataset=train_dataset, batch_size=args.batch_size, context_length=args.model_context_length, device=args.device,
-                                    dtype=torch.long)
+        t0 = time.perf_counter()
+        if elapsed_time is not None:
+            t0 -= elapsed_time
 
-        prediction: torch.Tensor = model(inputs)
+        for it in range(iteration, args.iter + 1):
+            inputs, targets = get_batch(dataset=train_dataset, batch_size=args.batch_size, context_length=args.model_context_length, device=args.device,
+                                        dtype=torch.long)
 
-        loss: torch.Tensor = cross_entropy(prediction, targets)
-        loss.backward()
+            prediction: torch.Tensor = model(inputs)
 
-        l2_norm: float = gradient_clipping(parameters=model.parameters(), max_l2_norm=args.gradient_max_l2_norm, eps=args.gradient_eps)
+            loss: torch.Tensor = cross_entropy(prediction, targets)
+            loss.backward()
 
-        if it % args.log_interval == 0 or it == args.iter:
-            print(f"{it}/{args.iter} Training loss: {loss.item()}")
-        if it % (100*args.log_interval) == 0 or it == args.iter:
-            print(f"{it}/{args.iter} L2-norm: {l2_norm}")
+            l2_norm: float = gradient_clipping(parameters=model.parameters(), max_l2_norm=args.gradient_max_l2_norm, eps=args.gradient_eps)
 
-        lr: float = cosine_lr_schedule(
-            t=it,
-            lr_max=args.optimizer_lr_max,
-            lr_min=args.optimizer_lr_min,
-            warmup_iters=args.optimizer_warmup_iters,
-            cosine_cycle_iters=args.optimizer_cosine_cycle_iters,
-        )
-        for group in optimizer.param_groups:
-            group["lr"] = lr
+            if it % args.log_interval == 0 or it == args.iter:
+                print(f"{it}/{args.iter} Training loss: {loss.item()}")
+            if it % (100 * args.log_interval) == 0 or it == args.iter:
+                print(f"{it}/{args.iter} L2-norm: {l2_norm}")
 
-        optimizer.step()
-        optimizer.zero_grad()
+            lr: float = cosine_lr_schedule(
+                t=it,
+                lr_max=args.optimizer_lr_max,
+                lr_min=args.optimizer_lr_min,
+                warmup_iters=args.optimizer_warmup_iters,
+                cosine_cycle_iters=args.optimizer_cosine_cycle_iters,
+            )
+            for group in optimizer.param_groups:
+                group["lr"] = lr
 
-        t1 = time.perf_counter()
+            optimizer.step()
+            optimizer.zero_grad()
 
-        print(f"Elapsed time: {(t1 - t0):.0f} s")
+            if it % args.log_interval == 0 or it == args.iter:
+                synchronize(args.device)
+                t1 = time.perf_counter()
 
-        if it % args.checkpoints_iter == 0 or it == args.iter:
-            save_checkpoint(model, optimizer, it, os.path.join(checkpoints_dir, f"ckpt_{it}.pt"), int(t1-t0))
-            print(f"{it}/{args.iter} Saving checkpoint...")
+                print(f"Elapsed time: {(t1 - t0):.0f} s")
 
-        with torch.no_grad():
-            if val_dataset is not None and (it % args.val_interval == 0 or it == args.iter):
-                val_loss_sum: float = 0
-                for i in range(args.val_batches):
-                    val_inputs, val_targets = get_batch(dataset=val_dataset, batch_size=args.batch_size, context_length=args.model_context_length,
-                                                        device=args.device, dtype=torch.long)
+                metrics: dict = {
+                    "step": it, "time": t1 - t0, "train_loss": loss.item(), "lr": lr
+                }
+                metric_file.write(json.dumps(metrics) + "\n")
+                metric_file.flush()
 
-                    val_prediction = model(val_inputs)
-                    val_loss_sum += cross_entropy(val_prediction, val_targets).item()
+            with torch.no_grad():
+                if val_dataset is not None and (it % args.val_interval == 0 or it == args.iter):
+                    val_loss_sum: float = 0
+                    for i in range(args.val_batches):
+                        val_inputs, val_targets = get_batch(dataset=val_dataset, batch_size=args.batch_size, context_length=args.model_context_length,
+                                                            device=args.device, dtype=torch.long)
 
-                val_loss = val_loss_sum / args.val_batches
+                        val_prediction = model(val_inputs)
+                        val_loss_sum += cross_entropy(val_prediction, val_targets).item()
 
-                print(f"{it}/{args.iter} Validation loss: {val_loss}")
+                    val_loss = val_loss_sum / args.val_batches
 
+                    t2 = time.perf_counter()
+
+                    metrics: dict = {
+                        "step": it, "time": t2 - t0, "val_loss": val_loss,
+                    }
+                    metric_file.write(json.dumps(metrics) + "\n")
+                    metric_file.flush()
+
+                    print(f"{it}/{args.iter} Validation loss: {val_loss}")
+
+            if it % args.checkpoints_iter == 0 or it == args.iter:
+                t3 = time.perf_counter()
+                save_checkpoint(model, optimizer, it, os.path.join(checkpoints_dir, f"ckpt_{it}.pt"), t3 - t0)
+                print(f"{it}/{args.iter} Saving checkpoint...")
+
+
+def synchronize(device: str):
+    if device == "mps":
+        torch.mps.synchronize()
+    elif device == "cuda":
+        torch.cuda.synchronize()
 
 
 if __name__ == "__main__":
