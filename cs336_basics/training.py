@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import time
 from datetime import datetime
 
 import numpy as np
@@ -47,14 +48,20 @@ def training(args: argparse.Namespace):
         eps=args.optimizer_eps,
     )
 
+    elapsed_time = None
     if args.checkpoint_src:
         print("Loading checkpoint...")
-        iteration = load_checkpoint(args.checkpoint_src, model, optimizer)
+        iteration, elapsed_time = load_checkpoint(args.checkpoint_src, model, optimizer)
+
         print(f"Resuming from iteration {iteration}/{args.iter}")
         iteration += 1
 
     train_dataset = np.load(file=args.train_data, mmap_mode='r')
     val_dataset = np.load(file=args.val_data, mmap_mode='r') if args.val_data else None
+
+    t0 = time.perf_counter()
+    if elapsed_time is not None:
+        t0 -= elapsed_time
 
     for it in range(iteration, args.iter + 1):
         inputs, targets = get_batch(dataset=train_dataset, batch_size=args.batch_size, context_length=args.model_context_length, device=args.device,
@@ -85,8 +92,12 @@ def training(args: argparse.Namespace):
         optimizer.step()
         optimizer.zero_grad()
 
+        t1 = time.perf_counter()
+
+        print(f"Elapsed time: {(t1 - t0):.0f} s")
+
         if it % args.checkpoints_iter == 0 or it == args.iter:
-            save_checkpoint(model, optimizer, it, os.path.join(checkpoints_dir, f"ckpt_{it}.pt"))
+            save_checkpoint(model, optimizer, it, os.path.join(checkpoints_dir, f"ckpt_{it}.pt"), int(t1-t0))
             print(f"{it}/{args.iter} Saving checkpoint...")
 
         with torch.no_grad():
