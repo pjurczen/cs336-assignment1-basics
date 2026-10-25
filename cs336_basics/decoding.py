@@ -65,7 +65,6 @@ def decoding(args: argparse.Namespace):
                 if next_token_id not in special_token_ids:
                     next_token: str = tokenizer.decode([next_token_id])
                     print(next_token, end="", flush=True)
-        print()
 
 
 def latest_checkpoint_path(checkpoints_dir: str) -> str:
