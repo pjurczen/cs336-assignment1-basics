@@ -1,5 +1,6 @@
 import cProfile
 import json
+import os
 import pstats
 import resource
 import time
@@ -8,10 +9,10 @@ from collections.abc import Iterable, Iterator
 from functools import lru_cache
 
 from cs336_basics.bpe_state import BpeState
+from cs336_basics.common import gpt2_bytes_to_unicode
 from cs336_basics.peek_memory_sampler import PeekMemorySampler
 from cs336_basics.pretokenization import pretokenize, split_text_to_chunks, pretokenize_text, _build_tuple_bytes, \
     merge_pretoken, get_byte_pairs, PAT
-from tests.common import gpt2_bytes_to_unicode
 
 BYTES_COUNT = 256  # this is really an overkill since in UTF-8 192, 193 and >=245 bytes are not used, but we learn those if at inference time invalid input was somehow passed
 
@@ -28,6 +29,45 @@ class BpeTokenizer:
         self.id_vocab = {}
         self.merges = []
         self.special_tokens = []
+
+    @classmethod
+    def from_vocab_merges_path(
+            cls,
+            vocab_path: str | os.PathLike,
+            merges_path: str | os.PathLike,
+            special_tokens: list[str] | None = None,
+    ):
+        gpt2_byte_decoder = {v: k for k, v in gpt2_bytes_to_unicode().items()}
+        with open(vocab_path) as vocab_f:
+            gpt2_vocab = json.load(vocab_f)
+        gpt2_bpe_merges = []
+        with open(merges_path) as f:
+            for line in f:
+                cleaned_line = line.rstrip()
+                if cleaned_line and len(cleaned_line.split(" ")) == 2:
+                    gpt2_bpe_merges.append(tuple(cleaned_line.split(" ")))
+        # The GPT-2 tokenizer uses a remapped unicode encoding for bytes. Let's
+        # just return the original bytes, so we don't force students to use
+        # any particular encoding scheme.
+        vocab = {
+            gpt2_vocab_index: bytes([gpt2_byte_decoder[token] for token in gpt2_vocab_item])
+            for gpt2_vocab_item, gpt2_vocab_index in gpt2_vocab.items()
+        }
+        # If any of the special tokens don't exist in the vocab, append them to the vocab.
+        if special_tokens:
+            for special_token in special_tokens:
+                byte_encoded_special_token = special_token.encode("utf-8")
+                if byte_encoded_special_token not in set(vocab.values()):
+                    vocab[len(vocab)] = byte_encoded_special_token
+
+        merges = [
+            (
+                bytes([gpt2_byte_decoder[token] for token in merge_token_1]),
+                bytes([gpt2_byte_decoder[token] for token in merge_token_2]),
+            )
+            for merge_token_1, merge_token_2 in gpt2_bpe_merges
+        ]
+        return cls.from_resources(vocab, merges, special_tokens)
 
     @classmethod
     def from_resources(cls, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens: list[str] | None = None) -> "BpeTokenizer":
