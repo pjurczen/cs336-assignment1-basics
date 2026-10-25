@@ -40,7 +40,8 @@ def training(args: argparse.Namespace):
         device=args.device,
         dtype=torch.float32
     )
-    model = torch.compile(model, backend="aot_eager")
+    # Forward passes go through the compiled wrapper; checkpoints use the plain model so keys have no "_orig_mod." prefix.
+    compiled_model: torch.nn.Module = torch.compile(model, backend="aot_eager")
 
     optimizer: torch.optim.Optimizer = AdamWOptimizer(
         params=model.parameters(),
@@ -75,7 +76,7 @@ def training(args: argparse.Namespace):
             indices: npt.NDArray[int] = get_random_indices(dataset=train_dataset, batch_size=args.batch_size, context_length=args.model_context_length)
             inputs, targets = get_batch(dataset=train_dataset, indices=indices, context_length=args.model_context_length, device=args.device, dtype=torch.long)
 
-            prediction: torch.Tensor = model(inputs)
+            prediction: torch.Tensor = compiled_model(inputs)
 
             loss: torch.Tensor = cross_entropy(prediction, targets)
             loss.backward()
@@ -114,10 +115,10 @@ def training(args: argparse.Namespace):
 
             if val_dataset is not None and (it % args.val_interval == 0 or it == args.iter):
                 if it == args.iter:
-                    val_loss: float = evaluate(model, val_dataset, final_val_indices, args.batch_size, args.model_context_length, args.device,
+                    val_loss: float = evaluate(compiled_model, val_dataset, final_val_indices, args.batch_size, args.model_context_length, args.device,
                                                full_dataset_eval=True)
                 elif it % args.val_interval == 0:
-                    val_loss: float = evaluate(model, val_dataset, iter_val_indices, args.batch_size, args.model_context_length, args.device)
+                    val_loss: float = evaluate(compiled_model, val_dataset, iter_val_indices, args.batch_size, args.model_context_length, args.device)
                 t2 = time.perf_counter()
 
                 metrics: dict = {

@@ -2,6 +2,7 @@ import os
 from typing import BinaryIO, IO, Optional
 
 import torch
+from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
 
 def save_checkpoint(
@@ -27,6 +28,8 @@ def load_checkpoint(
         optimizer: torch.optim.Optimizer,
 ) -> tuple[int, Optional[float]]:
     checkpoint: dict[str, any] = torch.load(src)
+    # Older checkpoints were saved from the torch.compile wrapper, which prefixes every key.
+    consume_prefix_in_state_dict_if_present(checkpoint["model"], "_orig_mod.")
     model.load_state_dict(checkpoint["model"])
     optimizer.load_state_dict(checkpoint["optimizer"])
     return checkpoint["iteration"], checkpoint.get("elapsed_time", None)

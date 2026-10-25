@@ -4,6 +4,7 @@ import os
 from typing import Optional
 
 import torch
+from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
 from cs336_basics.bpe_tokenizer import BpeTokenizer
 from cs336_basics.run_config import RunConfig
@@ -31,6 +32,8 @@ def decoding(args: argparse.Namespace):
     checkpoint_path = args.checkpoint if args.checkpoint is not None else latest_checkpoint_path(os.path.join(args.run_dir, "checkpoints"))
     print(f"Loading model from {checkpoint_path}...")
     checkpoint: dict[str, any] = torch.load(checkpoint_path)
+    # Older checkpoints were saved from the torch.compile wrapper, which prefixes every key.
+    consume_prefix_in_state_dict_if_present(checkpoint["model"], "_orig_mod.")
     model.load_state_dict(checkpoint["model"])
 
     context: list[int] = []
