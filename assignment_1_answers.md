@@ -357,3 +357,7 @@ Solving for batch_size:
 23'426'389 × batch_size = 2'593'044'480
 batch_size = 110.6890387588
 batch size ≈ 110 => picking batch_size = 64
+
+Picking iterations number:
+64 × iter × 256 = 40,000,000
+iter = 2'441.40625 => picking iter = 2500
