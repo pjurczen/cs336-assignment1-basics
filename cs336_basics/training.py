@@ -101,7 +101,7 @@ def training(args: argparse.Namespace):
                 print(f"Elapsed time: {(t1 - t0):.0f} s")
 
                 metrics: dict = {
-                    "step": it, "time": t1 - t0, "train_loss": loss.item(), "lr": lr
+                    "step": it, "time": round(t1 - t0, 2), "train_loss": loss.item(), "lr": lr
                 }
                 metric_file.write(json.dumps(metrics) + "\n")
                 metric_file.flush()
