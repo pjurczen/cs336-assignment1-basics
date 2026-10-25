@@ -78,7 +78,7 @@ def training(args: argparse.Namespace):
 
             if it % args.log_interval == 0 or it == args.iter:
                 print(f"{it}/{args.iter} Training loss: {loss.item()}")
-            if it % (100 * args.log_interval) == 0 or it == args.iter:
+            if it % (10 * args.log_interval) == 0 or it == args.iter:
                 print(f"{it}/{args.iter} L2-norm: {l2_norm}")
 
             lr: float = cosine_lr_schedule(
