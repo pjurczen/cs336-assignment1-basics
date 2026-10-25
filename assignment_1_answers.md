@@ -335,3 +335,25 @@ The optimizer step cost is negligible compared to forward + backward pass cost.
 To train 400k steps: 400'000 × 1.08 × 10¹⁶ FLOPs / 247.5 × 10¹² FLOP/s ≈
 ≈ 17'461'010 s ≈ 4'850 h ≈ 202 days
 
+
+## 7.2 Problem: Hyperparameter tuning
+
+vocab_size: 10,000
+context_length: 256
+num_layers: 4
+d_model: 512
+num_heads: 16
+d_ff: 1344
+
+Required memory: num_layers × (56/3 bnd + 2bhn²) + bnd + 2bn vocab_size + 8 d × vocab_size + 4 × num_layers × (12d² + 2d) + 4d
+4 × (56/3 × batch_size × 256 × 512 + 2 × batch_size × 16 × 256²) + batch_size × 256 × 512 + 2 × batch_size × 256 × 10000 + 8 × 512 × 10000 + 4 × 4 × (12 × 512² + 2 × 512) + 4 × 512 =
+18'175'317 × batch_size + 131'072 × batch_size + 5'120'000 × batch_size + 91'310'080 =
+23'426'389 × batch_size + 91'310'080 
+
+10 GiB = 10'737'418'240 bytes / 4 bytes => 2'684'354'560 params
+
+Solving for batch_size:
+23'426'389 × batch_size + 91'310'080 = 2'684'354'560
+23'426'389 × batch_size = 2'593'044'480
+batch_size = 110.6890387588
+batch size ≈ 110 => picking batch_size = 64

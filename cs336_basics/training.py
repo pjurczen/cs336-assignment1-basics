@@ -39,6 +39,7 @@ def training(args: argparse.Namespace):
         device=args.device,
         dtype=torch.float32
     )
+    model = torch.compile(model, backend="aot_eager")
 
     optimizer: torch.optim.Optimizer = AdamWOptimizer(
         params=model.parameters(),
