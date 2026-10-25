@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 from typing import Optional
 
 import torch
@@ -11,9 +12,9 @@ from cs336_basics.transformer_lm import TransformerLM
 
 
 def decoding(args: argparse.Namespace):
-    tokenizer = BpeTokenizer.from_vocab_merges_path(args.vocab_path, args.merges_path, [args.special_tokens])
-    with open(args.model_config_path, "r") as f:
+    with open(os.path.join(args.run_dir, "config.json"), "r") as f:
         model_config: RunConfig = RunConfig.model_validate(json.load(f))
+    tokenizer = BpeTokenizer.from_dir(model_config.tokenizer_dir)
     model: torch.nn.Module = TransformerLM(
         vocab_size=model_config.model_vocab_size,
         context_length=model_config.model_context_length,
@@ -27,12 +28,13 @@ def decoding(args: argparse.Namespace):
         dtype=torch.float32
     )
 
-    print("Loading model...")
-    checkpoint: dict[str, any] = torch.load(args.model_checkpoint_path)
+    checkpoint_path = args.checkpoint if args.checkpoint is not None else latest_checkpoint_path(os.path.join(args.run_dir, "checkpoints"))
+    print(f"Loading model from {checkpoint_path}...")
+    checkpoint: dict[str, any] = torch.load(checkpoint_path)
     model.load_state_dict(checkpoint["model"])
 
     context: list[int] = []
-    special_token_ids: set[int] = set(tokenizer.encode(args.special_tokens))
+    special_token_ids: set[int] = {tokenizer.id_vocab[token] for token in tokenizer.special_tokens}
 
     while True:
         try:
@@ -65,6 +67,13 @@ def decoding(args: argparse.Namespace):
         print()
 
 
+def latest_checkpoint_path(checkpoints_dir: str) -> str:
+    checkpoints = [os.path.join(checkpoints_dir, name) for name in os.listdir(checkpoints_dir) if name.endswith(".pt")]
+    if not checkpoints:
+        raise FileNotFoundError(f"No checkpoints in {checkpoints_dir}")
+    return max(checkpoints, key=os.path.getmtime)
+
+
 def sample_next_token(logits: torch.Tensor, temperature: float, top_p: Optional[float] = None, top_k: Optional[int] = None) -> int:
     if temperature == 0:
         return torch.argmax(logits).item()
@@ -87,11 +96,8 @@ def sample_next_token(logits: torch.Tensor, temperature: float, top_p: Optional[
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    arg_parser.add_argument("--vocab_path", type=str, required=True)
-    arg_parser.add_argument("--merges_path", type=str, required=True)
-    arg_parser.add_argument("--special_tokens", type=str, required=True)
-    arg_parser.add_argument("--model_config_path", type=str, required=True)
-    arg_parser.add_argument("--model_checkpoint_path", type=str, required=True)
+    arg_parser.add_argument("--run_dir", type=str, required=True)
+    arg_parser.add_argument("--checkpoint", type=str, default=None)
     arg_parser.add_argument("--temperature", type=float, default=1.0)
     arg_parser.add_argument("--top_p", type=float)
     arg_parser.add_argument("--top_k", type=int)

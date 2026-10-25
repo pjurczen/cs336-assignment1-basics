@@ -7,6 +7,7 @@ import numpy as np
 import torch.optim
 
 from cs336_basics.adamw_optimizer import AdamWOptimizer
+from cs336_basics.bpe_tokenizer import read_tokenizer_config
 from cs336_basics.checkpoint import load_checkpoint, save_checkpoint
 from cs336_basics.cross_entropy import cross_entropy
 from cs336_basics.data_loading import get_batch
@@ -113,7 +114,6 @@ if __name__ == "__main__":
     arg_parser.add_argument("--optimizer_beta1", type=float, default=0.9)
     arg_parser.add_argument("--optimizer_beta2", type=float, default=0.999)
     arg_parser.add_argument("--optimizer_eps", type=float, default=1e-8)
-    arg_parser.add_argument("--model_vocab_size", type=int, default=50257)
     arg_parser.add_argument("--model_context_length", type=int, default=1024)
     arg_parser.add_argument("--model_num_layers", type=int, default=48)
     arg_parser.add_argument("--model_d_model", type=int, default=1600)
@@ -126,6 +126,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("--iter", type=int, default=100)
     arg_parser.add_argument("--device", type=str, default="mps")
     arg_parser.add_argument("--batch_size", type=int, default=32)
+    arg_parser.add_argument("--tokenizer_dir", type=str, required=True)
     arg_parser.add_argument("--train_data", type=str, required=True)
     arg_parser.add_argument("--val_data", type=str)
     arg_parser.add_argument("--val_batches", type=int, default=32)
@@ -143,6 +144,7 @@ if __name__ == "__main__":
         args.optimizer_cosine_cycle_iters = args.iter
     if args.run_name is None:
         args.run_name = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    args.model_vocab_size = read_tokenizer_config(args.tokenizer_dir)["vocab_size"]
 
     assert args.optimizer_lr_min <= args.optimizer_lr_max
     assert args.optimizer_warmup_iters < args.optimizer_cosine_cycle_iters <= args.iter

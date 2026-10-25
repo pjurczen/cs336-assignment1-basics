@@ -23,6 +23,7 @@ class RunConfig(BaseModel):
     iter: int
     device: str
     batch_size: int
+    tokenizer_dir: str
     train_data: str
     val_data: str | None
     val_batches: int

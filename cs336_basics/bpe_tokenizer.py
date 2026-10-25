@@ -1,3 +1,4 @@
+import argparse
 import cProfile
 import json
 import os
@@ -8,6 +9,8 @@ from collections import Counter
 from collections.abc import Iterable, Iterator
 from functools import lru_cache
 
+import numpy as np
+
 from cs336_basics.bpe_state import BpeState
 from cs336_basics.common import gpt2_bytes_to_unicode
 from cs336_basics.peek_memory_sampler import PeekMemorySampler
@@ -15,6 +18,10 @@ from cs336_basics.pretokenization import pretokenize, split_text_to_chunks, pret
     merge_pretoken, get_byte_pairs, PAT
 
 BYTES_COUNT = 256  # this is really an overkill since in UTF-8 192, 193 and >=245 bytes are not used, but we learn those if at inference time invalid input was somehow passed
+
+VOCAB_FILE = "vocab.json"
+MERGES_FILE = "merges.txt"
+CONFIG_FILE = "tokenizer_config.json"
 
 
 class BpeTokenizer:
@@ -261,24 +268,84 @@ class BpeTokenizer:
             for merge in self.merges:
                 f.write(f"{bytes_to_gpt2_unicode(merge[0])} {bytes_to_gpt2_unicode(merge[1])}\n")
 
+    def save_dir(self, tokenizer_dir: str | os.PathLike, input_path: str | None = None) -> None:
+        os.makedirs(tokenizer_dir, exist_ok=True)
+        self.save(os.path.join(tokenizer_dir, VOCAB_FILE), os.path.join(tokenizer_dir, MERGES_FILE))
+        config = {
+            "vocab_size": len(self.vocab),
+            "special_tokens": [x.decode("utf-8") for x in self.special_tokens],
+            "input_path": input_path,
+        }
+        with open(os.path.join(tokenizer_dir, CONFIG_FILE), "w") as f:
+            json.dump(config, f, indent=2)
+
+    @classmethod
+    def from_dir(cls, tokenizer_dir: str | os.PathLike) -> "BpeTokenizer":
+        config = read_tokenizer_config(tokenizer_dir)
+        return cls.from_vocab_merges_path(
+            os.path.join(tokenizer_dir, VOCAB_FILE),
+            os.path.join(tokenizer_dir, MERGES_FILE),
+            config["special_tokens"],
+        )
+
     def max_length_token(self) -> tuple[int, bytes]:
         return max(self.vocab.items(), key=lambda x: len(x[1]))
+
+
+def read_tokenizer_config(tokenizer_dir: str | os.PathLike) -> dict:
+    with open(os.path.join(tokenizer_dir, CONFIG_FILE)) as f:
+        return json.load(f)
 
 
 def bytes_to_gpt2_unicode(bytes_token: bytes) -> str:
     return ''.join([gpt2_bytes_to_unicode()[token] for token in bytes_token])
 
 
+def train_command(args: argparse.Namespace) -> None:
+    bpe_tokenizer = BpeTokenizer()
+    if args.profile:
+        with cProfile.Profile() as pr:
+            with PeekMemorySampler() as mem:
+                bpe_tokenizer.train(args.input, args.vocab_size, args.special_tokens)
+                print(f"peak: {mem.peak_mib():.0f} MiB")
+            print(f"Max worker memory used {resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss}")
+        pstats.Stats(pr).sort_stats("cumulative").print_stats(40)
+    else:
+        bpe_tokenizer.train(args.input, args.vocab_size, args.special_tokens)
+
+    bpe_tokenizer.save_dir(args.out_dir, input_path=args.input)
+    print(f"Saved tokenizer to {args.out_dir}")
+    print(f"Longest token: {bpe_tokenizer.max_length_token()}")
+
+
+def encode_command(args: argparse.Namespace) -> None:
+    bpe_tokenizer = BpeTokenizer.from_dir(args.tokenizer_dir)
+    # uint16 halves the file size, but only fits ids below 65,536
+    dtype = np.uint16 if len(bpe_tokenizer.vocab) <= np.iinfo(np.uint16).max + 1 else np.uint32
+    os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
+    with open(args.input) as f:
+        ids = np.fromiter(bpe_tokenizer.encode_iterable(f), dtype=dtype, count=-1)
+    np.save(args.output, ids)
+    print(f"Saved {len(ids)} tokens ({ids.dtype}) to {args.output}")
+
+
 if __name__ == "__main__":
-    with cProfile.Profile() as pr:
-        with PeekMemorySampler() as mem:
-            bpe_tokenizer = BpeTokenizer()
-            bpe_tokenizer.train("data/owt_train.txt", 32000, ["<|endoftext|>"])
+    arg_parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    subparsers = arg_parser.add_subparsers(dest="command", required=True)
 
-            print(f"peak: {mem.peak_mib():.0f} MiB")
+    train_parser = subparsers.add_parser("train", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    train_parser.add_argument("--input", type=str, required=True)
+    train_parser.add_argument("--vocab_size", type=int, required=True)
+    train_parser.add_argument("--special_tokens", type=str, nargs="+", default=["<|endoftext|>"])
+    train_parser.add_argument("--out_dir", type=str, required=True)
+    train_parser.add_argument("--profile", action="store_true")
+    train_parser.set_defaults(func=train_command)
 
-        print(f"Max worker memory used {resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss}")
+    encode_parser = subparsers.add_parser("encode", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    encode_parser.add_argument("--tokenizer_dir", type=str, required=True)
+    encode_parser.add_argument("--input", type=str, required=True)
+    encode_parser.add_argument("--output", type=str, required=True)
+    encode_parser.set_defaults(func=encode_command)
 
-        bpe_tokenizer.save("data/train-bpe-vocab-owt_train.json", "data/train-bpe-merges-owt_train.txt")
-        print(bpe_tokenizer.max_length_token())
-    pstats.Stats(pr).sort_stats("cumulative").print_stats(40)
+    args = arg_parser.parse_args()
+    args.func(args)
