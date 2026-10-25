@@ -82,7 +82,7 @@ def training(args: argparse.Namespace):
 
             l2_norm: float = gradient_clipping(parameters=model.parameters(), max_l2_norm=args.gradient_max_l2_norm, eps=args.gradient_eps)
 
-            if (it <= 50 and it % 10 == 0) or it % args.log_interval == 0 or it == args.iter:
+            if (it <= args.optimizer_warmup_iters and it % 10 == 0) or it % args.log_interval == 0 or it == args.iter:
                 print(f"{it}/{args.iter} Training loss: {loss.item()}")
             if it % (10 * args.log_interval) == 0 or it == args.iter:
                 print(f"{it}/{args.iter} L2-norm: {l2_norm}")
@@ -100,7 +100,7 @@ def training(args: argparse.Namespace):
             optimizer.step()
             optimizer.zero_grad()
 
-            if (it <= 50 and it % 10 == 0) or it % args.log_interval == 0 or it == args.iter:
+            if (it <= args.optimizer_warmup_iters and it % 10 == 0) or it % args.log_interval == 0 or it == args.iter:
                 synchronize(args.device)
                 t1 = time.perf_counter()
 
