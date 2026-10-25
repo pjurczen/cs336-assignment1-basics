@@ -121,10 +121,12 @@ def training(args: argparse.Namespace):
                 t2 = time.perf_counter()
 
                 metrics: dict = {
-                    "step": it, "time": t2 - t0, "val_loss": val_loss,
+                    "step": it, "time": round(t2 - t0, 2), "val_loss": val_loss,
                 }
                 metric_file.write(json.dumps(metrics) + "\n")
                 metric_file.flush()
+
+                print(f"{it}/{args.iter} Validation loss: {val_loss}")
 
             if it % args.checkpoints_iter == 0 or it == args.iter:
                 t3 = time.perf_counter()
