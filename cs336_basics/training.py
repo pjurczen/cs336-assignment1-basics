@@ -5,13 +5,14 @@ import time
 from datetime import datetime
 
 import numpy as np
+import numpy.typing as npt
 import torch.optim
 
 from cs336_basics.adamw_optimizer import AdamWOptimizer
 from cs336_basics.bpe_tokenizer import read_tokenizer_config
 from cs336_basics.checkpoint import load_checkpoint, save_checkpoint
 from cs336_basics.cross_entropy import cross_entropy
-from cs336_basics.data_loading import get_batch
+from cs336_basics.data_loading import get_batch, get_random_indices, get_nonoverlapping_indices
 from cs336_basics.gradient import gradient_clipping
 from cs336_basics.learning_rate import cosine_lr_schedule
 from cs336_basics.transformer_lm import TransformerLM
@@ -60,6 +61,10 @@ def training(args: argparse.Namespace):
     train_dataset = np.load(file=args.train_data, mmap_mode='r')
     val_dataset = np.load(file=args.val_data, mmap_mode='r') if args.val_data else None
 
+    iter_val_indices: npt.NDArray[int] = get_nonoverlapping_indices(val_dataset, args.model_context_length,
+                                                                    args.val_batches * args.batch_size) if args.val_data else None
+    final_val_indices: npt.NDArray[int] = get_nonoverlapping_indices(val_dataset, args.model_context_length) if args.val_data else None
+
     with open(os.path.join(run_dir, "metrics.jsonl"), "a") as metric_file:
 
         t0 = time.perf_counter()
@@ -67,8 +72,8 @@ def training(args: argparse.Namespace):
             t0 -= elapsed_time
 
         for it in range(iteration, args.iter + 1):
-            inputs, targets = get_batch(dataset=train_dataset, batch_size=args.batch_size, context_length=args.model_context_length, device=args.device,
-                                        dtype=torch.long)
+            indices: npt.NDArray[int] = get_random_indices(dataset=train_dataset, batch_size=args.batch_size, context_length=args.model_context_length)
+            inputs, targets = get_batch(dataset=train_dataset, indices=indices, context_length=args.model_context_length, device=args.device, dtype=torch.long)
 
             prediction: torch.Tensor = model(inputs)
 
@@ -107,32 +112,51 @@ def training(args: argparse.Namespace):
                 metric_file.write(json.dumps(metrics) + "\n")
                 metric_file.flush()
 
-            with torch.no_grad():
-                if val_dataset is not None and (it % args.val_interval == 0 or it == args.iter):
-                    val_loss_sum: float = 0
-                    for i in range(args.val_batches):
-                        val_inputs, val_targets = get_batch(dataset=val_dataset, batch_size=args.batch_size, context_length=args.model_context_length,
-                                                            device=args.device, dtype=torch.long)
+            if val_dataset is not None and (it % args.val_interval == 0 or it == args.iter):
+                if it == args.iter:
+                    val_loss: float = evaluate(model, val_dataset, final_val_indices, args.batch_size, args.model_context_length, args.device,
+                                               full_dataset_eval=True)
+                elif it % args.val_interval == 0:
+                    val_loss: float = evaluate(model, val_dataset, iter_val_indices, args.batch_size, args.model_context_length, args.device)
+                t2 = time.perf_counter()
 
-                        val_prediction = model(val_inputs)
-                        val_loss_sum += cross_entropy(val_prediction, val_targets).item()
-
-                    val_loss = val_loss_sum / args.val_batches
-
-                    t2 = time.perf_counter()
-
-                    metrics: dict = {
-                        "step": it, "time": t2 - t0, "val_loss": val_loss,
-                    }
-                    metric_file.write(json.dumps(metrics) + "\n")
-                    metric_file.flush()
-
-                    print(f"{it}/{args.iter} Validation loss: {val_loss}")
+                metrics: dict = {
+                    "step": it, "time": t2 - t0, "val_loss": val_loss,
+                }
+                metric_file.write(json.dumps(metrics) + "\n")
+                metric_file.flush()
 
             if it % args.checkpoints_iter == 0 or it == args.iter:
                 t3 = time.perf_counter()
                 save_checkpoint(model, optimizer, it, os.path.join(checkpoints_dir, f"ckpt_{it}.pt"), t3 - t0)
                 print(f"{it}/{args.iter} Saving checkpoint...")
+
+
+def evaluate(model: torch.nn.Module, dataset: npt.NDArray, indices: npt.NDArray, batch_size: int, context_length: int, device: str,
+             full_dataset_eval: bool = False) -> float:
+    with torch.no_grad():
+        val_loss_sum: float = 0
+        token_count: int = 0
+        for idx in range(0, len(indices), batch_size):
+            batch = indices[idx: (idx + batch_size)]
+            val_inputs, val_targets = get_batch(dataset=dataset, indices=batch, context_length=context_length, device=device, dtype=torch.long)
+
+            val_prediction = model(val_inputs)
+            val_loss_sum += cross_entropy(val_prediction, val_targets).item() * (len(batch) * context_length)
+            token_count += len(batch) * context_length
+
+        if full_dataset_eval:
+            tail_length: int = (len(dataset) - 1) % context_length
+            if tail_length > 0:
+                start = len(dataset) - 1 - tail_length
+                val_inputs, val_targets = get_batch(dataset=dataset, indices=np.array([start]), context_length=tail_length, device=device, dtype=torch.long)
+                val_prediction = model(val_inputs)
+                val_loss_sum += cross_entropy(val_prediction, val_targets).item() * tail_length
+                token_count += tail_length
+
+        val_loss = val_loss_sum / token_count
+
+        return val_loss
 
 
 def synchronize(device: str):

@@ -1,11 +1,23 @@
+from typing import Optional
+
 import numpy as np
 import numpy.typing as npt
 import torch
 from einops import rearrange
 
 
-def get_batch(dataset: npt.NDArray, batch_size: int, context_length: int, device: str, dtype: torch.dtype | None = None) -> tuple[torch.Tensor, torch.Tensor]:
-    indices = np.random.randint(0, dataset.size - context_length, size=batch_size)
+def get_random_indices(dataset: npt.NDArray, batch_size: int, context_length: int):
+    return np.random.default_rng().integers(0, dataset.size - context_length, size=batch_size)
+
+
+def get_nonoverlapping_indices(dataset: npt.NDArray, context_length: int, limit: Optional[int] = None):
+    nonoverlapping_count: int = (len(dataset) - 1) // context_length
+    count: int = min(limit, nonoverlapping_count) if limit is not None else nonoverlapping_count
+    return np.arange(count) * context_length
+
+
+def get_batch(dataset: npt.NDArray, indices: npt.NDArray[int], context_length: int, device: str, dtype: torch.dtype | None = None) -> tuple[
+    torch.Tensor, torch.Tensor]:
     indices = rearrange(indices, "... -> ... 1")
 
     input_offsets = np.arange(0, context_length)
