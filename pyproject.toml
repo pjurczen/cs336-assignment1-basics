@@ -20,6 +20,7 @@ dependencies = [
     "ty>=0.0.26",
     "ruff>=0.15.8",
     "pydantic>=2.12.5",
+    "pandas>=3.1.0",
 ]
 
 [build-system]
@@ -51,6 +52,7 @@ dev = [
     "ipykernel>=7.2.0",
     "jupyterlab>=4.5.7",
     "line-profiler>=5.0.2",
+    "matplotlib>=3.11.2",
 ]
 
 [tool.ruff.lint]
