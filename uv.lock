@@ -308,6 +308,7 @@ dependencies = [
     { name = "einops" },
     { name = "einx" },
     { name = "jaxtyping" },
+    { name = "line-profiler" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "psutil" },
@@ -328,7 +329,6 @@ dependencies = [
 dev = [
     { name = "ipykernel" },
     { name = "jupyterlab" },
-    { name = "line-profiler" },
     { name = "matplotlib" },
 ]
 
@@ -337,6 +337,7 @@ requires-dist = [
     { name = "einops", specifier = ">=0.8" },
     { name = "einx", specifier = ">=0.4" },
     { name = "jaxtyping", specifier = ">=0.3" },
+    { name = "line-profiler", specifier = ">=5.0.2" },
     { name = "numpy", specifier = ">=2.4" },
     { name = "pandas", specifier = ">=3.1.0" },
     { name = "psutil", specifier = ">=7" },
@@ -357,7 +358,6 @@ requires-dist = [
 dev = [
     { name = "ipykernel", specifier = ">=7.2.0" },
     { name = "jupyterlab", specifier = ">=4.5.7" },
-    { name = "line-profiler", specifier = ">=5.0.2" },
     { name = "matplotlib", specifier = ">=3.11.2" },
 ]
 
