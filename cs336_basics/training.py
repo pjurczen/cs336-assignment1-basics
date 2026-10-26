@@ -114,7 +114,8 @@ def training(args: argparse.Namespace):
                 print(f"Elapsed time: {(t1 - t0):.0f} s")
 
                 metrics: dict = {
-                    "step": it, "time": round(t1 - t0, 2), "train_loss": loss.item(), "lr": lr
+                    "step": it, "time": round(t1 - t0, 2), "train_loss": loss.item(), "lr": lr,
+                    "peak_memory_gb": peak_memory_gb(args.device),
                 }
                 metric_file.write(json.dumps(metrics) + "\n")
                 metric_file.flush()
@@ -173,6 +174,13 @@ def synchronize(device: str):
         torch.mps.synchronize()
     elif device == "cuda":
         torch.cuda.synchronize()
+
+
+def peak_memory_gb(device: str) -> float | None:
+    # Most GPU memory held by tensors so far in this run (CUDA only).
+    if device.startswith("cuda"):
+        return round(torch.cuda.max_memory_allocated() / 1e9, 2)
+    return None
 
 
 if __name__ == "__main__":
