@@ -165,3 +165,7 @@ cython_debug/
 # Data files
 data/
 runs/
+# Terraform
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*

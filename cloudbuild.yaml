@@ -1,0 +1,10 @@
+# Builds the training image and pushes it to Artifact Registry. Submitted by scripts/build_image.sh.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: [ "build", "-t", "${_IMAGE}", "." ]
+images:
+  - "${_IMAGE}"
+options:
+  # Required when the build runs as a user-specified service account.
+  logging: CLOUD_LOGGING_ONLY
+timeout: 1800s

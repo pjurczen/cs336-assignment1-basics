@@ -1,0 +1,8 @@
+# Files `gcloud builds submit` leaves out of the source upload. The Docker build filters again with .dockerignore.
+#!include:.gitignore
+.git
+.envrc
+infra/
+notebooks/
+tests/
+*.pdf
