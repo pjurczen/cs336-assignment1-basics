@@ -50,8 +50,9 @@ def decoding(args: argparse.Namespace):
         encoded_prompt: list[int] = tokenizer.encode(prompt)
         context += encoded_prompt
         generated_tokens: int = 0
+        last_token_id = None
 
-        while context[-1] not in special_token_ids and generated_tokens != args.max_tokens:
+        while (last_token_id is None or last_token_id not in special_token_ids) and generated_tokens != args.max_tokens:
             context_cutoff: int = len(context) - model_config.model_context_length
             context_start: int = 0 if context_cutoff < 0 else context_cutoff
             context_window: list[int] = context[context_start:]
@@ -63,6 +64,7 @@ def decoding(args: argparse.Namespace):
                 next_token_logits = logits[0][-1]  # first (only) batch, last token
 
                 next_token_id: int = sample_next_token(next_token_logits, args.temperature, args.top_p, args.top_k)
+                last_token_id = next_token_id
                 context.append(next_token_id)
                 generated_tokens += 1
 
