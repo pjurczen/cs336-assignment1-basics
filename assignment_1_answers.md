@@ -373,3 +373,31 @@ The final validation loss was lowest for 0.003:
 
 ![LR sweep validation loss](runs/lr_sweep_final.png)
 
+## 7.2 Problem (batch_size_experiment): Batch size variations
+
+Final validation loss drops when increasing batch size, that's caused by averaging more tokens per optimizer step, resulting in more stable but less steps.
+
+![Batch size final](runs/a100/batch_size_final.png)
+
+Increasing batch size does reduce training time significantly, so the task is to find the right spot between training time and model performance.
+
+![Batch size curves](runs/a100/batch_size_curves.png)
+
+## 7.2 Problem (generate): Generate text
+
+Once upon a time, there was a little boy named Tim. Tim had a big toy car that he liked to play with every day. He would carry it around the house, making it go
+fast and slow. One day, Tim saw a big, unknown green frog in his yard. The frog looked very sad and lonely.
+Tim wanted to make the frog a friend, so he went to his mom. Tim's mom did not know how to help the frog, but she told him to try and make the frog happy. So
+Tim gave his toy car a big smile and said, "Frog, you will see if you play with my ball and your friends in the yard."
+The frog jumped up and down, and all the other animals in the neighborhood started to wonder if they could understand him. The frog said, "Tim, can you do that
+for me?" Tim was sad, but he knew that the frog wanted to be friends too. He tried to be less scared, and he felt less sad.
+Later, Tim's mom saw him playing with the frog and felt bad for being scared. She had an idea. She said, "Tim, let's play order and still be eager to help you
+learn the new ways to have fun. We can all make new friends and have fun together."
+So, Tim, his mom, and the frog all learned something new and became good friends. They learned that being curious and trying new things can make you more fun.
+Tim learned that sometimes, being brave and asking for help can make everything better. And he never felt the urge again.
+
+Observations:
+
+- Decoding settings: high temperature gives variety but drifting meaning, low or greedy gives safe but bland text, and greedy can loop.
+- How close the prompt is to the training data: TinyStories-style openings work great; unusual words, names or topics don't.
+
