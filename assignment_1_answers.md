@@ -361,3 +361,15 @@ batch size ≈ 110 => picking batch_size = 64
 Picking iterations number:
 64 × iter × 256 = 40,000,000
 iter = 2'441.40625 => picking iter = 2500
+
+## 7.2 Problem (learning_rate): Tune the learning rate
+
+We can observe highest performance for learning rate (max) of 0.003. Decreasing (0.001) or increasing (0.01 - 1) had negative impact on the model performance.
+At learning rate 1 we can observe complete divergence during training and instability.
+
+![LR sweep curves](runs/lr_sweep_curves.png)
+
+The final validation loss was lowest for 0.003:
+
+![LR sweep validation loss](runs/lr_sweep_final.png)
+
