@@ -40,8 +40,14 @@ def training(args: argparse.Namespace):
         device=args.device,
         dtype=torch.float32
     )
+    if args.device.startswith("cuda"):
+        # Let float32 matmuls run on TF32 tensor cores (A100 and newer).
+        torch.set_float32_matmul_precision("high")
+
+    # aot_eager works on MPS; on CUDA the default inductor backend generates fused kernels.
+    compile_backend: str = "inductor" if args.device.startswith("cuda") else "aot_eager"
     # Forward passes go through the compiled wrapper; checkpoints use the plain model so keys have no "_orig_mod." prefix.
-    compiled_model: torch.nn.Module = torch.compile(model, backend="aot_eager")
+    compiled_model: torch.nn.Module = torch.compile(model, backend=compile_backend)
 
     optimizer: torch.optim.Optimizer = AdamWOptimizer(
         params=model.parameters(),

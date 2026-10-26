@@ -27,7 +27,8 @@ def load_checkpoint(
         model: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
 ) -> tuple[int, Optional[float]]:
-    checkpoint: dict[str, any] = torch.load(src)
+    # Load onto the model's device, so a checkpoint saved on CUDA can be resumed on MPS and vice versa.
+    checkpoint: dict[str, any] = torch.load(src, map_location=next(model.parameters()).device)
     # Older checkpoints were saved from the torch.compile wrapper, which prefixes every key.
     consume_prefix_in_state_dict_if_present(checkpoint["model"], "_orig_mod.")
     model.load_state_dict(checkpoint["model"])

@@ -25,13 +25,14 @@ def decoding(args: argparse.Namespace):
         d_ff=model_config.model_d_ff,
         eps=model_config.model_eps,
         theta=model_config.model_rope_theta,
-        device=torch.device(model_config.device),
+        device=torch.device(args.device),
         dtype=torch.float32
     )
 
     checkpoint_path = args.checkpoint if args.checkpoint is not None else latest_checkpoint_path(os.path.join(args.run_dir, "checkpoints"))
     print(f"Loading model from {checkpoint_path}...")
-    checkpoint: dict[str, any] = torch.load(checkpoint_path)
+    # The run may have trained on another device (e.g. CUDA), so load straight onto the one we decode on.
+    checkpoint: dict[str, any] = torch.load(checkpoint_path, map_location=args.device)
     # Older checkpoints were saved from the torch.compile wrapper, which prefixes every key.
     consume_prefix_in_state_dict_if_present(checkpoint["model"], "_orig_mod.")
     model.load_state_dict(checkpoint["model"])
@@ -55,7 +56,7 @@ def decoding(args: argparse.Namespace):
             context_start: int = 0 if context_cutoff < 0 else context_cutoff
             context_window: list[int] = context[context_start:]
 
-            model_input: torch.Tensor = torch.tensor(context_window, device=torch.device(model_config.device)).unsqueeze(0)
+            model_input: torch.Tensor = torch.tensor(context_window, device=torch.device(args.device)).unsqueeze(0)
             with torch.no_grad():
                 logits: torch.Tensor = model(model_input)  # (batch, sequence_length, vocab_size)
 
@@ -105,6 +106,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("--top_p", type=float)
     arg_parser.add_argument("--top_k", type=int)
     arg_parser.add_argument("--max_tokens", type=int, default=1000)
+    arg_parser.add_argument("--device", type=str, default="mps")
     args = arg_parser.parse_args()
 
     decoding(args)
