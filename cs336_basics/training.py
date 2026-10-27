@@ -7,6 +7,7 @@ from datetime import datetime
 import numpy as np
 import numpy.typing as npt
 import torch.optim
+import wandb
 
 from cs336_basics.adamw_optimizer import AdamWOptimizer
 from cs336_basics.bpe_tokenizer import read_tokenizer_config
@@ -27,6 +28,9 @@ def training(args: argparse.Namespace):
     with open(os.path.join(run_dir, "config.json"), "w") as f:
         json.dump(vars(args), f, indent=2)
     print(f"Run directory: {run_dir}")
+
+    # Live dashboard, off unless --wandb_project is given. Needs WANDB_API_KEY or a prior `wandb login`.
+    wandb_run = wandb.init(project=args.wandb_project, name=args.run_name, config=vars(args)) if args.wandb_project else None
 
     model: torch.nn.Module = TransformerLM(
         vocab_size=args.model_vocab_size,
@@ -114,11 +118,12 @@ def training(args: argparse.Namespace):
                 print(f"Elapsed time: {(t1 - t0):.0f} s")
 
                 metrics: dict = {
-                    "step": it, "time": round(t1 - t0, 2), "train_loss": loss.item(), "lr": lr,
+                    "step": it, "time": round(t1 - t0, 2), "train_loss": loss.item(), "lr": lr, "grad_norm": l2_norm,
                     "peak_memory_gb": peak_memory_gb(args.device),
                 }
                 metric_file.write(json.dumps(metrics) + "\n")
                 metric_file.flush()
+                log_to_wandb(wandb_run, metrics)
 
             if val_dataset is not None and (it % args.val_interval == 0 or it == args.iter):
                 if it == args.iter:
@@ -133,6 +138,7 @@ def training(args: argparse.Namespace):
                 }
                 metric_file.write(json.dumps(metrics) + "\n")
                 metric_file.flush()
+                log_to_wandb(wandb_run, metrics)
 
                 print(f"{it}/{args.iter} Validation loss: {val_loss}")
 
@@ -140,6 +146,9 @@ def training(args: argparse.Namespace):
                 t3 = time.perf_counter()
                 save_checkpoint(model, optimizer, it, os.path.join(checkpoints_dir, f"ckpt_{it}.pt"), t3 - t0)
                 print(f"{it}/{args.iter} Saving checkpoint...")
+
+    if wandb_run is not None:
+        wandb_run.finish()
 
 
 def evaluate(model: torch.nn.Module, dataset: npt.NDArray, indices: npt.NDArray, batch_size: int, context_length: int, device: str,
@@ -183,6 +192,12 @@ def peak_memory_gb(device: str) -> float | None:
     return None
 
 
+def log_to_wandb(wandb_run, metrics: dict):
+    # Same metrics as metrics.jsonl; wandb takes the step separately and skips missing values.
+    if wandb_run is not None:
+        wandb_run.log({key: value for key, value in metrics.items() if key != "step" and value is not None}, step=metrics["step"])
+
+
 def int_or_none(value: str) -> int | None:
     # Lets a flag be switched off from the command line, e.g. --model_rope_theta none (no RoPE).
     return None if value.lower() == "none" else int(value)
@@ -220,6 +235,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("--run_name", type=str, default=None)
     arg_parser.add_argument("--checkpoints_iter", type=int, default=100)
     arg_parser.add_argument("--checkpoint_src", type=str, default=None)
+    arg_parser.add_argument("--wandb_project", type=str, default=None)
     args = arg_parser.parse_args()
 
     if args.optimizer_warmup_iters is None:

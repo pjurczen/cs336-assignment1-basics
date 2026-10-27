@@ -5,6 +5,7 @@ locals {
         "cloudbuild.googleapis.com",
         "iam.googleapis.com",
         "logging.googleapis.com",
+        "secretmanager.googleapis.com",
         "storage.googleapis.com",
     ]
 }
@@ -118,4 +119,22 @@ resource "google_project_iam_member" "builder_logs" {
     project = var.project_id
     role    = "roles/logging.logWriter"
     member  = "serviceAccount:${google_service_account.builder.email}"
+}
+
+# The wandb API key for live training dashboards. Terraform creates only the empty secret; the key itself is added with
+#   gcloud secrets versions add cs336-wandb-api-key --data-file=-
+# so it never ends up in the Terraform state.
+resource "google_secret_manager_secret" "wandb_api_key" {
+    secret_id = "cs336-wandb-api-key"
+    replication {
+        auto {}
+    }
+    depends_on = [google_project_service.apis]
+}
+
+# Training jobs read the key at startup (scripts/vertex_entrypoint.sh).
+resource "google_secret_manager_secret_iam_member" "trainer_wandb_api_key" {
+    secret_id = google_secret_manager_secret.wandb_api_key.id
+    role      = "roles/secretmanager.secretAccessor"
+    member    = "serviceAccount:${google_service_account.trainer.email}"
 }

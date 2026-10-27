@@ -18,6 +18,7 @@ bucket="$(tf_output bucket)"
 image="$(tf_output image)"
 image="${image%:*}:${IMAGE_TAG:-latest}"
 trainer_sa="$(tf_output trainer_sa)"
+wandb_secret="$(tf_output wandb_secret)"
 
 case "$machine" in
   cpu) machine_spec=("machineType: n1-standard-4") ;;
@@ -45,6 +46,8 @@ config="$(mktemp -d)/job.yaml"
   echo "      env:"
   echo "        - name: GCS_BUCKET"
   echo "          value: ${bucket}"
+  echo "        - name: WANDB_API_KEY_SECRET"
+  echo "          value: ${wandb_secret}"
   echo "      args:"
   for arg in "${job_args[@]}"; do
     # Single-quoted YAML strings: a quote inside is written twice, an empty argument stays ''.

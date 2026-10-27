@@ -24,6 +24,17 @@ mkdir -p "data/${dataset}" tokenizers runs
 cp "${bucket_dir}/data/${dataset}/"*.npy "data/${dataset}/"
 cp -r "${bucket_dir}/tokenizers/." tokenizers/
 
+# The wandb API key lives in Secret Manager ($WANDB_API_KEY_SECRET) and is read with the job's service account,
+# so it never appears in the job definition. Runs without --wandb_project don't need it.
+if [ -n "${WANDB_API_KEY_SECRET:-}" ]; then
+    if WANDB_API_KEY="$(uv run python scripts/read_secret.py "$WANDB_API_KEY_SECRET")"; then
+        export WANDB_API_KEY
+        echo "Read the wandb API key from ${WANDB_API_KEY_SECRET}"
+    else
+        echo "Could not read ${WANDB_API_KEY_SECRET}; runs with --wandb_project will fail"
+    fi
+fi
+
 copy_runs_to_bucket() {
     echo "Copying runs/ to ${bucket_dir}/runs..."
     mkdir -p "${bucket_dir}/runs"

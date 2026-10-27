@@ -23,3 +23,7 @@ output "trainer_sa" {
 output "builder_sa" {
     value = google_service_account.builder.email
 }
+
+output "wandb_secret" {
+    value = google_secret_manager_secret.wandb_api_key.id
+}

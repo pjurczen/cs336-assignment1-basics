@@ -33,3 +33,4 @@ class RunConfig(BaseModel):
     run_name: str
     checkpoints_iter: int
     checkpoint_src: str | None
+    wandb_project: str | None = None  # older runs' config.json predates this field
