@@ -183,6 +183,11 @@ def peak_memory_gb(device: str) -> float | None:
     return None
 
 
+def int_or_none(value: str) -> int | None:
+    # Lets a flag be switched off from the command line, e.g. --model_rope_theta none (no RoPE).
+    return None if value.lower() == "none" else int(value)
+
+
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     arg_parser.add_argument("--optimizer_lr_min", type=float, default=1e-4)
@@ -199,7 +204,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("--model_d_ff", type=int, default=4288)
     arg_parser.add_argument("--model_num_heads", type=int, default=25)
     arg_parser.add_argument("--model_eps", type=float, default=1e-5)
-    arg_parser.add_argument("--model_rope_theta", type=int, default=10000)
+    arg_parser.add_argument("--model_rope_theta", type=int_or_none, default=10000)
     arg_parser.add_argument("--gradient_max_l2_norm", type=float, default=1.0)
     arg_parser.add_argument("--gradient_eps", type=float, default=1e-6)
     arg_parser.add_argument("--iter", type=int, default=100)

@@ -17,7 +17,7 @@ class RunConfig(BaseModel):
     model_d_ff: int
     model_num_heads: int
     model_eps: float
-    model_rope_theta: int
+    model_rope_theta: int | None
     gradient_max_l2_norm: float
     gradient_eps: float
     iter: int
