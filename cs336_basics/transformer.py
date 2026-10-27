@@ -21,6 +21,6 @@ class TransformerBlock(torch.nn.Module):
         self.ffn = SwiGLU(d_model, d_ff, device=device, dtype=dtype)
 
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:  # => [FLOPS] 8 bnd² + 4bn²d + 6 bndd_ff
-        y = self.ln1(x + self.attn(x, token_positions))  # => [FLOPs] 8 bnd² + 4bn²d = 8 × 1024 × 1600² + 4 × 1024² × 1600 = 27'682'406'400
-        y = self.ln2(y + self.ffn(y))  # => [FLOPs] 16 bnd² / 6 bnd d_ff = 6 × 1024 × 1600 × 4288 = 42'152'755'200
+        y = x + self.attn(self.ln1(x), token_positions)  # => [FLOPs] 8 bnd² + 4bn²d = 8 × 1024 × 1600² + 4 × 1024² × 1600 = 27'682'406'400
+        y = y + self.ffn(self.ln2(y))  # => [FLOPs] 16 bnd² / 6 bnd d_ff = 6 × 1024 × 1600 × 4288 = 42'152'755'200
         return y
