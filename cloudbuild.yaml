@@ -5,10 +5,9 @@
 steps:
   - name: gcr.io/cloud-builders/docker
     entrypoint: bash
-    args: [ "-c", "docker pull ${_IMAGE} || docker pull ${_CACHE_IMAGE} || exit 0" ]
+    args: [ "-c", "docker pull ${_IMAGE} || (docker pull ${_CACHE_IMAGE} && docker tag ${_CACHE_IMAGE} ${_IMAGE}) || exit 0" ]
   - name: gcr.io/cloud-builders/docker
-    args: [ "build", "-t", "${_IMAGE}", "--cache-from", "${_IMAGE}", "--cache-from", "${_CACHE_IMAGE}",
-            "--build-arg", "BUILDKIT_INLINE_CACHE=1", "." ]
+    args: [ "build", "-t", "${_IMAGE}", "--cache-from", "${_IMAGE}", "--build-arg", "BUILDKIT_INLINE_CACHE=1", "." ]
 images:
   - "${_IMAGE}"
 options:
