@@ -1,12 +1,14 @@
 # Builds the training image and pushes it to Artifact Registry. Submitted by scripts/build_image.sh.
 # Every build starts on an empty machine, so pull the previous image and reuse its layers: when only code changes,
-# the ~4 GB dependency layer is neither reinstalled nor pushed again.
+# the ~4 GB dependency layer is neither reinstalled nor pushed again. _CACHE_IMAGE is the :latest image, so a new
+# variant tag (e.g. an ablation) reuses its layers too.
 steps:
   - name: gcr.io/cloud-builders/docker
     entrypoint: bash
-    args: [ "-c", "docker pull ${_IMAGE} || exit 0" ]
+    args: [ "-c", "docker pull ${_IMAGE} || docker pull ${_CACHE_IMAGE} || exit 0" ]
   - name: gcr.io/cloud-builders/docker
-    args: [ "build", "-t", "${_IMAGE}", "--cache-from", "${_IMAGE}", "--build-arg", "BUILDKIT_INLINE_CACHE=1", "." ]
+    args: [ "build", "-t", "${_IMAGE}", "--cache-from", "${_IMAGE}", "--cache-from", "${_CACHE_IMAGE}",
+            "--build-arg", "BUILDKIT_INLINE_CACHE=1", "." ]
 images:
   - "${_IMAGE}"
 options:

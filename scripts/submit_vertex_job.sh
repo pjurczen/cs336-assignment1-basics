@@ -3,6 +3,7 @@
 #   scripts/submit_vertex_job.sh <cpu|a100> <dataset> <command...>
 #   e.g. scripts/submit_vertex_job.sh a100 tinystories-10k scripts/train_tinystories_base.sh --device cuda --run_name a100-base
 # The job is named after --run_name if the command has one. Results land in gs://<bucket>/runs/.
+# IMAGE_TAG (default: latest) picks an image variant built with the same variable by scripts/build_image.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -15,6 +16,7 @@ project="$(tf_output project_id)"
 region="$(tf_output region)"
 bucket="$(tf_output bucket)"
 image="$(tf_output image)"
+image="${image%:*}:${IMAGE_TAG:-latest}"
 trainer_sa="$(tf_output trainer_sa)"
 
 case "$machine" in
