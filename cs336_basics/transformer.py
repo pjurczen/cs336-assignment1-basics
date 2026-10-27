@@ -2,14 +2,14 @@ import torch
 
 from cs336_basics.attention import CasualMultiHeadSelfAttentionOptimized
 from cs336_basics.rms_norm import RMSNorm
-from cs336_basics.silu import SiLU
+from cs336_basics.swiglu import SwiGLU
 
 
 class TransformerBlock(torch.nn.Module):
     ln1: RMSNorm
     attn: CasualMultiHeadSelfAttentionOptimized
 
-    ffn: SiLU
+    ffn: SwiGLU
     ln2: RMSNorm
 
     def __init__(self, d_model: int, num_heads: int, d_ff: int | None = None, eps: float = 1e-5, max_seq_len: int | None = None, theta: float | None = None,
@@ -18,7 +18,7 @@ class TransformerBlock(torch.nn.Module):
         self.ln1 = RMSNorm(d_model, eps, device=device, dtype=dtype)
         self.attn = CasualMultiHeadSelfAttentionOptimized(d_model, num_heads, max_seq_len, theta, device=device, dtype=dtype)  # => [FLOPs] 8bnd²
         self.ln2 = RMSNorm(d_model, eps, device=device, dtype=dtype)
-        self.ffn = SiLU(d_model, device=device, dtype=dtype)
+        self.ffn = SwiGLU(d_model, d_ff, device=device, dtype=dtype)
 
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:  # => [FLOPS] 8 bnd² + 4bn²d + 6 bndd_ff
         y = x + self.attn(self.ln1(x), token_positions)  # => [FLOPs] 8 bnd² + 4bn²d = 8 × 1024 × 1600² + 4 × 1024² × 1600 = 27'682'406'400
