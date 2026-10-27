@@ -435,3 +435,8 @@ Using post-norm instead of pre-norm worked fine in terms of stability issues, bu
 
 ![Post- vs Pre-RMS norm](figures/post_norm_vs_pre_norm.png)
 
+## 7.3 Problem (no_pos_emb): Implement NoPE
+
+Training without positional embedding was stable, but performed worse compared to with RoPE:
+
+![NoPE](figures/nope_vs_rope.png)
