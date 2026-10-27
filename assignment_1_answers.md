@@ -449,3 +449,91 @@ SwiGLU is consistently better at equal parameters, by ~0.1 early in training and
 
 However it did perform around 1% better, and the original paper (Shazeer (2020), "GLU Variants Improve Transformer".), did mention 2-3% improvement of SwiGLU
 over SiLU.
+
+## 7.4 Problem (main_experiment): Experiment on OWT
+
+Both the training and validation loss was much lower on TinyStories compared to OpenWebText with same model parameters:
+
+![OWT vs TinyStories](figures/owt_vs_tinystories.png)
+
+This can point us to following reasoning:
+
+- We are comparing losses from two different tokenizers, of different vocab size and different compression rate, since loss is an average loss per token
+- This can be observed with different starting training loss, which comes from vocab size itself (≈9.21 for TinyStories and ≈10.37 for OpenWebText)
+- To have comparable losses, we would need to scale it by compression ratio and show in terms of loss/byte instead of loss/token.
+  Scaled validation loss would be:
+    - Compression ratio for TinyStories tokenizer is around 4.0 bytes/token, meaning 0.338 nats/byte
+    - Compression ratio for OpenWebText tokenizer is around 4.5 bytes/token, meaning 0.872 nats/byte
+      Which is still a big gap
+
+- The data from OpenWebText is much more noisy and differentiated between samples
+- Too small model for OpenWebText content
+- The sample matches the loss: fluent sentences locally, but no coherent meaning or topic across sentences, while the TinyStories samples tell whole coherent
+  stories
+
+We can also observe difference in wall-clock time between both runs, the final linear layer compute depends on vocab size:
+
+![OWT vs TinyStories time](figures/owt_vs_tinystories_time.png)
+
+Generated sample:
+
+I know what you do, but that doesn’t ring up in my loop. I’m just about to tell my friend’s stiff, tight thinking, and… I’m not really quoting them from any of
+the seven measures the slightest disappointment of anything I’ve seen since 2016.
+
+DB: No more horrific but terrible statistics?
+
+Submit this in, you may wonder. I know I have no power, I have no power. I own them, and you’re responsible for them, I decide that they make up a little
+troublesome in my own right brain.
+
+Q: What inspired you?
+
+Submit this excerpt for the American! That’s for example here from the front pages of Netcode, which number shows the likely drop in temperature of Trump
+unleashed Texas ice cream to decimate the Bush era and been back into controversy involving “state of mind” before suddenly hitting the wall?
+
+A: Yes, you’re a climber and Corey Trober, so don’t start off. I’ve felt that lately the brain singled out others such as his dog.
+
+Q: Do you want hip bones in what’s right?
+
+A: Oh, and not necessarily single eyed of gumhead sports. I’re more on my word.
+
+Q: What are the opinions, what are you dealing with wrongmetrics and why is the comments you make about myself?
+
+A: I don’t tell you about where I’m at and how I look. I mean, then I shoot college increasing grades, at least not working away for a decade, so I’m not
+sensitive to that. I mean, I was a much worse person when I was getting back home (the whole memoir for a few fell swirl on phones with a million dollar half
+leading to better making those jobs). Actually, that last bit reflects my mood.
+
+Q: If your body damage isn’t effective (and a number of factors pisses off, are you willing to go away?), perhaps then—an experiment brewing you would probably
+already have done with you.
+
+Q: In addition, the design bug is a completely unexpected and has no accurate toll on one variable.
+
+A: At least it’s wrong here. I’ve had these divisions heaved out after a 45-minute working segment, but I was recalling no issues between them relating to me.
+
+Q: I’m a biologist with Tosey Garrison, a friend of mine who’s like Prince of Ulster and 10 year old Tristan W. B. If his size is up but he mostly finds it;
+NATO is a real weakness and is a real champion of U.S. differences
+
+A: I don’t think and lose them. I hate British pop-culture, but I don’t always die down, because it is our challenge.
+
+Q: Do you sell ideology since it may only damage everyone they do as a result?
+
+A: That’s not going to stop precedent.
+
+Q: Do you think this particular approach should help to make me decided?
+
+A: Terrified through a laugh, I began to think that the market was hit 30,000 years ago. And businesses could work too much to be successful in WWE. Last year,
+they could go out and play games at a London coffee table, and in some cases, they had to get content with those people and businesses. There could be really no
+contact or some financial support from anybody.
+
+Q: What they could do to sneal those characters? Or whether people impede them afterwards?
+
+A: No, not me. I grew up in Toronto another for the Elect Gu Hotel. But it was tough. So I thought, would he deserve credit? That meant virtual convention with
+Alice Acton. He built a real life with a lot of of people, technicalities and talented people all around the block. It was fun.
+
+Q: I poll the thought that the Negudo Madhya market garnered the attention of millions, which is what we saw on Twitch last year. And what we saw before was a
+fellowship with the fighting game.
+
+Q: Think it was me anyway, things didn’t get going. The Bergen Summit: If there was one currency, speculating for EA would be. As long as IT was marketing, it
+was gonna take me five minutes to details on what I would do, I would probably go in and talk about the matter and whether I would have been in charge because
+of my cooperation. But you’re starting to do a serious deal with it. So besides trying to get up and curt up next. And if I was on cloud sci-fi in an esports
+arena in Moscow in ’60s and
+
