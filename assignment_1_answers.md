@@ -367,21 +367,42 @@ iter = 2'441.40625 => picking iter = 2500
 We can observe highest performance for learning rate (max) of 0.003. Decreasing (0.001) or increasing (0.01 - 1) had negative impact on the model performance.
 At learning rate 1 we can observe complete divergence during training and instability.
 
-![LR sweep curves](runs/lr_sweep_curves.png)
+![LR sweep curves](figures/lr_sweep_curves.png)
 
 The final validation loss was lowest for 0.003:
 
-![LR sweep validation loss](runs/lr_sweep_final.png)
+![LR sweep validation loss](figures/lr_sweep_final.png)
 
 ## 7.2 Problem (batch_size_experiment): Batch size variations
 
-Final validation loss drops when increasing batch size, that's caused by averaging more tokens per optimizer step, resulting in more stable but less steps.
+Final validation loss increases with increasing batch size after reaching critical batch size of 64, that's caused by averaging more tokens per optimizer step,
+resulting in more stable but less steps.
 
-![Batch size final](runs/a100/batch_size_final.png)
+![Batch size final](figures/batch_size_final.png)
 
-Increasing batch size does reduce training time significantly, so the task is to find the right spot between training time and model performance.
+Increasing batch size does reduce training time significantly, but only to a certain point, after reaching critical batch size we get smaller time savings,
+while we loose some performance at the same time, so the task is to find the sweet spot between training time and model performance.
 
-![Batch size curves](runs/a100/batch_size_curves.png)
+![Batch size curves](figures/batch_size_curves.png)
+
+When scaling batch size I started with scaling the learning rate by squared-root, a sweep at 256 batch size showed that the optimal learning rate lies between
+linear and squared-root scaling.
+
+![Batch size 256 lr sweep](figures/lr_sweep_256.png)
+
+The squared-root scaling was proposed by D. Granziol et al., "Learning Rates as a Function of Batch Size: A Random Matrix Theory Approach to Neural Network
+Training." 2022
+
+I also analyzed different warmups for 256 batch size for few learning rates and it shows, that extending warmup helps to a certain degree:
+
+![Warmup curves](figures/warmup_curves.png)
+
+For 40M token budget, the optimal settings are:
+batch size: 64
+lr_max / lr_min: 2e-3 / 2e-4 (i.e. √ scaling from 1.4e-3 at batch 32)
+Warmup: 60 steps; 120 was slightly worse, about at the noise level
+
+Confirming that squared-root learning rate scaling does apply for batch sizes before reaching the critical batch size.
 
 ## 7.2 Problem (generate): Generate text
 
