@@ -422,3 +422,16 @@ Observations:
 - Decoding settings: high temperature gives variety but drifting meaning, low or greedy gives safe but bland text, and greedy can loop.
 - How close the prompt is to the training data: TinyStories-style openings work great; unusual words, names or topics don't.
 
+## 7.3 Problem (layer_norm_ablation): Remove RMSNorm and train
+
+Removing RMS norm causes training stability issues, with lr_max 1e-3 (vs. 2e-3 with pre-norm) the training stabilized,
+but I wasn't able to reach the performance of the model with pre-norm RMSNorm:
+
+![No RMS norm](figures/no_rmsnorm_lr_sweep.png)
+
+## 7.3 Problem (pre_norm_ablation): Implement post-norm and train
+
+Using post-norm instead of pre-norm worked fine in terms of stability issues, but a model with pre-norm reached lower validation loss:
+
+![Post- vs Pre-RMS norm](figures/post_norm_vs_pre_norm.png)
+

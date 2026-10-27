@@ -2,7 +2,8 @@
 # The CUDA runtime libraries come with the torch wheel; the GPU driver comes from the host machine.
 #
 # Build in Cloud Build (native amd64, nothing large uploaded from this machine): scripts/build_image.sh
-FROM python:3.13-slim-bookworm
+# Pinned by digest: the tag is re-published upstream, and a new base image invalidates every cached layer.
+FROM python:3.13-slim-bookworm@sha256:e32be0e55814a08977501ca863271d9bd02443710db8f2afaf8372e2c4508530
 
 COPY --from=ghcr.io/astral-sh/uv:0.9.24 /uv /uvx /bin/
 
