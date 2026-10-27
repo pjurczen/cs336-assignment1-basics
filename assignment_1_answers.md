@@ -440,3 +440,12 @@ Using post-norm instead of pre-norm worked fine in terms of stability issues, bu
 Training without positional embedding was stable, but performed worse compared to with RoPE:
 
 ![NoPE](figures/nope_vs_rope.png)
+
+## 7.3 Problem (swiglu_ablation): SwiGLU vs. SiLU
+
+SwiGLU is consistently better at equal parameters, by ~0.1 early in training and ~0.013 at the end, which is modest and close to run-to-run noise at this scale:
+
+![SiLU ablation](figures/silu_vs_swiglu.png)
+
+However it did perform around 1% better, and the original paper (Shazeer (2020), "GLU Variants Improve Transformer".), did mention 2-3% improvement of SwiGLU
+over SiLU.
