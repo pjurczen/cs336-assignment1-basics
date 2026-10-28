@@ -34,6 +34,13 @@ for ((i = 0; i < ${#job_args[@]} - 1; i++)); do
   fi
 done
 
+# A job copies runs/<run_name> back into the bucket when it ends, overwriting a run with the same name.
+# ALLOW_EXISTING_RUN=1 skips this check, e.g. when resuming into the same run directory on purpose.
+if [ -z "${ALLOW_EXISTING_RUN:-}" ] && gcloud storage ls "gs://${bucket}/runs/${display_name}/" >/dev/null 2>&1; then
+  echo "gs://${bucket}/runs/${display_name}/ already exists; pick a new --run_name (or set ALLOW_EXISTING_RUN=1)" >&2
+  exit 1
+fi
+
 # CustomJobSpec: https://cloud.google.com/vertex-ai/docs/reference/rest/v1/CustomJobSpec
 config="$(mktemp -d)/job.yaml"
 {

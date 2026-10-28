@@ -4,9 +4,9 @@ import os
 from typing import Optional
 
 import torch
-from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
 from cs336_basics.bpe_tokenizer import BpeTokenizer
+from cs336_basics.checkpoint import upgrade_state_dict
 from cs336_basics.run_config import RunConfig
 from cs336_basics.softmax import softmax
 from cs336_basics.transformer_lm import TransformerLM
@@ -34,8 +34,8 @@ def decoding(args: argparse.Namespace):
     print(f"Loading model from {checkpoint_path}...")
     # The run may have trained on another device (e.g. CUDA), so load straight onto the one we decode on.
     checkpoint: dict[str, any] = torch.load(checkpoint_path, map_location=args.device)
-    # Older checkpoints were saved from the torch.compile wrapper, which prefixes every key.
-    consume_prefix_in_state_dict_if_present(checkpoint["model"], "_orig_mod.")
+    # Older checkpoints: torch.compile key prefix, fused qkv_proj (see upgrade_state_dict).
+    upgrade_state_dict(checkpoint["model"])
     model.load_state_dict(checkpoint["model"])
 
     context: list[int] = []

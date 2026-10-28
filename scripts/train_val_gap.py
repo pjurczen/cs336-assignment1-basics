@@ -13,8 +13,8 @@ import os
 
 import numpy as np
 import torch
-from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
+from cs336_basics.checkpoint import upgrade_state_dict
 from cs336_basics.data_loading import get_nonoverlapping_indices
 from cs336_basics.decoding import latest_checkpoint_path
 from cs336_basics.run_config import RunConfig
@@ -41,7 +41,7 @@ def train_val_gap(args: argparse.Namespace):
     checkpoint_path = args.checkpoint if args.checkpoint is not None else latest_checkpoint_path(os.path.join(args.run_dir, "checkpoints"))
     print(f"Loading model from {checkpoint_path}...")
     checkpoint: dict[str, any] = torch.load(checkpoint_path, map_location=args.device)
-    consume_prefix_in_state_dict_if_present(checkpoint["model"], "_orig_mod.")
+    upgrade_state_dict(checkpoint["model"])  # older checkpoints: torch.compile key prefix, fused qkv_proj
     model.load_state_dict(checkpoint["model"])
 
     train_dataset = np.load(file=config.train_data, mmap_mode='r')

@@ -63,9 +63,12 @@ class CasualMultiHeadSelfAttention(torch.nn.Module):
         casual_mask = (torch.tril(torch.ones(seq_len, seq_len, device=self.device)) == 1)
         if token_positions is None:
             token_positions = torch.arange(seq_len, device=self.device)
-        wq_x = self.q_proj(x)  # (..., seq_len, hd_k)
-        wk_x = self.k_proj(x)  # (..., seq_len, hd_k)
-        wv_x = self.v_proj(x)  # (..., seq_len, hd_v)
+        qkv_proj = torch.cat((self.q_proj.weight, self.k_proj.weight, self.v_proj.weight), dim=-2)
+        w_x = einsum(x, qkv_proj, "... seq_len d_model, d_qkv d_model -> ... seq_len d_qkv")
+        # (..., seq_len, hd_k + hd_k + hd_v) => [FLOPs] (b, n, d) @ (d, 3d) = 6bnd²
+        wq_x = w_x[..., :self.num_heads * self.d_k]
+        wk_x = w_x[..., self.num_heads * self.d_k:2 * self.num_heads * self.d_k]
+        wv_x = w_x[..., 2 * self.num_heads * self.d_k:]
         wq_x_i = rearrange(wq_x, "... seq_len (h d_k) -> ... h seq_len d_k", h=self.num_heads)  # (..., h, seq_len, d_k)
         wk_x_i = rearrange(wk_x, "... seq_len (h d_k) -> ... h seq_len d_k", h=self.num_heads)  # (..., h, seq_len, d_k)
         wv_x_i = rearrange(wv_x, "... seq_len (h d_v) -> ... h seq_len d_v", h=self.num_heads)  # (..., h, seq_len, d_v)
