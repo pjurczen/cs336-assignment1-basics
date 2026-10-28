@@ -103,10 +103,10 @@ def training(args: argparse.Namespace):
         for it in range(iteration, args.iter + 1):
             indices: npt.NDArray[int] = get_random_indices(dataset=train_dataset, batch_size=args.batch_size, context_length=args.model_context_length)
             inputs, targets = get_batch(dataset=train_dataset, indices=indices, context_length=args.model_context_length, device=args.device, dtype=torch.long)
+            with torch.autocast(device_type=args.device, dtype=torch.bfloat16, enabled=args.bf16):
+                prediction: torch.Tensor = compiled_model(inputs)
 
-            prediction: torch.Tensor = compiled_model(inputs)
-
-            loss: torch.Tensor = cross_entropy(prediction, targets)
+                loss: torch.Tensor = cross_entropy(prediction, targets)
             loss.backward()
 
             l2_norm: float = gradient_clipping(parameters=model.parameters(), max_l2_norm=args.gradient_max_l2_norm, eps=args.gradient_eps)
@@ -268,6 +268,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("--checkpoints_iter", type=int, default=100)
     arg_parser.add_argument("--checkpoint_src", type=str, default=None)
     arg_parser.add_argument("--wandb_project", type=str, default=None)
+    arg_parser.add_argument("--bf16", type=bool, default=True)
     args = arg_parser.parse_args()
     args.git_commit = git_commit()  # recorded in config.json and the wandb config
 
