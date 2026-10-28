@@ -48,12 +48,12 @@ class CasualMultiHeadSelfAttention(torch.nn.Module):
         self.num_heads = num_heads
         self.d_k = round(d_model / num_heads)
         self.d_v = self.d_k
-        self.q_proj = Linear(d_model, num_heads * self.d_k, device, dtype)
-        self.k_proj = Linear(d_model, num_heads * self.d_k, device, dtype)
-        self.v_proj = Linear(d_model, num_heads * self.d_v, device, dtype)
-        self.output_proj = Linear(num_heads * self.d_v, d_model, device, dtype)
+        self.q_proj = Linear(d_model, num_heads * self.d_k, device=device, dtype=dtype)
+        self.k_proj = Linear(d_model, num_heads * self.d_k, device=device, dtype=dtype)
+        self.v_proj = Linear(d_model, num_heads * self.d_v, device=device, dtype=dtype)
+        self.output_proj = Linear(num_heads * self.d_v, d_model, device=device, dtype=dtype)
         if max_seq_len is not None and theta is not None:
-            self.rope = RotaryPositionalEmbedding(theta, self.d_k, max_seq_len)
+            self.rope = RotaryPositionalEmbedding(theta, self.d_k, max_seq_len, device=device)
         else:
             self.rope = None
 
