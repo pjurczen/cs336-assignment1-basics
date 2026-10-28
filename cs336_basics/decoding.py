@@ -26,7 +26,8 @@ def decoding(args: argparse.Namespace):
         eps=model_config.model_eps,
         theta=model_config.model_rope_theta,
         device=torch.device(args.device),
-        dtype=torch.float32
+        dtype=torch.float32,
+        tie_embeddings=model_config.model_tie_embeddings,
     )
 
     checkpoint_path = args.checkpoint if args.checkpoint is not None else latest_checkpoint_path(os.path.join(args.run_dir, "checkpoints"))

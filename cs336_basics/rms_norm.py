@@ -2,7 +2,7 @@ import torch
 
 
 class RMSNorm(torch.nn.Module):
-    weight: torch.Tensor  # (d_model, )
+    weight: torch.nn.Parameter  # (d_model, )
     eps: float
 
     def __init__(self, d_model: int, eps: float = 1e-5, device=None, dtype=None):

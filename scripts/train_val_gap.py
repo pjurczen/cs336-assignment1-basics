@@ -35,7 +35,8 @@ def train_val_gap(args: argparse.Namespace):
         eps=config.model_eps,
         theta=config.model_rope_theta,
         device=torch.device(args.device),
-        dtype=torch.float32
+        dtype=torch.float32,
+        tie_embeddings=config.model_tie_embeddings,
     )
     checkpoint_path = args.checkpoint if args.checkpoint is not None else latest_checkpoint_path(os.path.join(args.run_dir, "checkpoints"))
     print(f"Loading model from {checkpoint_path}...")

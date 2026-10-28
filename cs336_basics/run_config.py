@@ -18,6 +18,7 @@ class RunConfig(BaseModel):
     model_num_heads: int
     model_eps: float
     model_rope_theta: int | None
+    model_tie_embeddings: bool = False  # older runs' config.json predates this field; they were untied
     gradient_max_l2_norm: float
     gradient_eps: float
     iter: int

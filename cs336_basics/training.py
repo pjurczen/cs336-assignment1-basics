@@ -42,7 +42,8 @@ def training(args: argparse.Namespace):
         eps=args.model_eps,
         theta=args.model_rope_theta,
         device=args.device,
-        dtype=torch.float32
+        dtype=torch.float32,
+        tie_embeddings=args.model_tie_embeddings,
     )
     if args.device.startswith("cuda"):
         # Let float32 matmuls run on TF32 tensor cores (A100 and newer).
@@ -220,6 +221,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("--model_num_heads", type=int, default=25)
     arg_parser.add_argument("--model_eps", type=float, default=1e-5)
     arg_parser.add_argument("--model_rope_theta", type=int_or_none, default=10000)
+    arg_parser.add_argument("--model_tie_embeddings", action="store_true", help="share one matrix between token embeddings and lm_head")
     arg_parser.add_argument("--gradient_max_l2_norm", type=float, default=1.0)
     arg_parser.add_argument("--gradient_eps", type=float, default=1e-6)
     arg_parser.add_argument("--iter", type=int, default=100)
