@@ -181,7 +181,7 @@ def evaluate(model: torch.nn.Module, dataset: npt.NDArray, indices: npt.NDArray,
                 val_inputs, val_targets = get_batch(dataset=dataset, indices=batch, context_length=context_length, device=device, dtype=torch.long)
 
                 val_prediction = model(val_inputs)
-                val_loss_sum += cross_entropy(val_prediction, val_targets).item() * (len(batch) * context_length)
+                val_loss_sum += cross_entropy(val_prediction.float(), val_targets).item() * (len(batch) * context_length)
                 token_count += len(batch) * context_length
 
             if full_dataset_eval:
@@ -190,7 +190,7 @@ def evaluate(model: torch.nn.Module, dataset: npt.NDArray, indices: npt.NDArray,
                     start = len(dataset) - 1 - tail_length
                     val_inputs, val_targets = get_batch(dataset=dataset, indices=np.array([start]), context_length=tail_length, device=device, dtype=torch.long)
                     val_prediction = model(val_inputs)
-                    val_loss_sum += cross_entropy(val_prediction, val_targets).item() * tail_length
+                    val_loss_sum += cross_entropy(val_prediction.float(), val_targets).item() * tail_length
                     token_count += tail_length
 
             val_loss = val_loss_sum / token_count
