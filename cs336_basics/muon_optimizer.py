@@ -6,7 +6,8 @@ import torch
 
 def newtonSchulz(G: torch.Tensor, a: float = 3.4445, b: float = -4.7750, c: float = 2.0315) -> torch.Tensor:
     eps = 1e-7
-    X = G / (G.pow(2).sum().sqrt() + eps)
+    X = G.bfloat16()
+    X = X / (X.pow(2).sum().sqrt() + eps)
     if G.shape[0] > G.shape[1]:
         X = X.T
     for _ in range(5):
