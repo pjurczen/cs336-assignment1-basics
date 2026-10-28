@@ -268,7 +268,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("--checkpoints_iter", type=int, default=100)
     arg_parser.add_argument("--checkpoint_src", type=str, default=None)
     arg_parser.add_argument("--wandb_project", type=str, default=None)
-    arg_parser.add_argument("--bf16", type=bool, default=True)
+    arg_parser.add_argument("--bf16", action="store_true")
     args = arg_parser.parse_args()
     args.git_commit = git_commit()  # recorded in config.json and the wandb config
 
