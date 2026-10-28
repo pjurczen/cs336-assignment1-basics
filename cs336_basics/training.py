@@ -109,12 +109,12 @@ def training(args: argparse.Namespace):
                 loss: torch.Tensor = cross_entropy(prediction, targets)
             loss.backward()
 
-            l2_norm: float = gradient_clipping(parameters=model.parameters(), max_l2_norm=args.gradient_max_l2_norm, eps=args.gradient_eps)
+            l2_norm: torch.Tensor = gradient_clipping(parameters=model.parameters(), max_l2_norm=args.gradient_max_l2_norm, eps=args.gradient_eps)
 
             if (it <= args.optimizer_warmup_iters and it % 10 == 0) or it % args.log_interval == 0 or it == args.iter:
                 print(f"{it}/{args.iter} Training loss: {loss.item()}")
             if it % (10 * args.log_interval) == 0 or it == args.iter:
-                print(f"{it}/{args.iter} L2-norm: {l2_norm}")
+                print(f"{it}/{args.iter} L2-norm: {l2_norm.item()}")
 
             lr: float = cosine_lr_schedule(
                 t=it,
@@ -136,7 +136,7 @@ def training(args: argparse.Namespace):
                 print(f"Elapsed time: {(t1 - t0):.0f} s")
 
                 metrics: dict = {
-                    "step": it, "time": round(t1 - t0, 2), "train_loss": loss.item(), "lr": lr, "grad_norm": l2_norm,
+                    "step": it, "time": round(t1 - t0, 2), "train_loss": loss.item(), "lr": lr, "grad_norm": l2_norm.item(),
                     "peak_memory_gb": peak_memory_gb(args.device),
                 }
                 metric_file.write(json.dumps(metrics) + "\n")
