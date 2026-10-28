@@ -8,5 +8,5 @@ def gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: flo
     l2_norm = torch.stack([p.grad.pow(2).sum() for p in params]).sum().sqrt()
     scaling_factor = (max_l2_norm / (l2_norm + eps)).clamp(max=1.0)
     for param in params:
-        param.grad = param.grad.multiply(scaling_factor)
+        param.grad = param.grad.mul_(scaling_factor)
     return l2_norm
