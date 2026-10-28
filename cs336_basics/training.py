@@ -17,6 +17,7 @@ from cs336_basics.cross_entropy import cross_entropy
 from cs336_basics.data_loading import get_batch, get_random_indices, get_nonoverlapping_indices
 from cs336_basics.gradient import gradient_clipping
 from cs336_basics.learning_rate import cosine_lr_schedule
+from cs336_basics.muon_optimizer import MuonOptimizer
 from cs336_basics.transformer_lm import TransformerLM
 
 
@@ -71,11 +72,10 @@ def training(args: argparse.Namespace):
         betas=(args.optimizer_beta1, args.optimizer_beta2),
         eps=args.optimizer_eps,
     )
-    muon: torch.optim.Optimizer | None = torch.optim.Muon(
+    muon: torch.optim.Optimizer | None = MuonOptimizer(
         params=matrix_params,
         lr=args.optimizer_lr_min,
         weight_decay=args.optimizer_weight_decay,
-        adjust_lr_fn="match_rms_adamw"
     ) if args.optimizer_muon else None
     optimizers: list[torch.optim.Optimizer] = [adamw] if muon is None else [adamw, muon]
 
