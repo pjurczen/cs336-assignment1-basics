@@ -1,3 +1,5 @@
+from math import sqrt
+
 import torch
 
 from cs336_basics.embedding import Embedding, EmbeddingLookup
@@ -17,7 +19,7 @@ class TransformerLM(torch.nn.Module):
         super().__init__()
         self.lm_head = Linear(d_model, vocab_size, device=device, dtype=dtype)
         if tie_embeddings:
-            self.token_embeddings = EmbeddingLookup(weight=self.lm_head.weight)
+            self.token_embeddings = EmbeddingLookup(weight=self.lm_head.weight, scale_factor=sqrt(d_model))
         else:
             self.token_embeddings = Embedding(num_embeddings=vocab_size, embedding_dim=d_model, device=device, dtype=dtype)
         self.layers = torch.nn.ModuleList(

@@ -3,14 +3,16 @@ import torch
 
 class EmbeddingLookup(torch.nn.Module):
     weight: torch.nn.Parameter
+    scale_factor: float
 
-    def __init__(self, weight: torch.nn.Parameter):
+    def __init__(self, weight: torch.nn.Parameter, scale_factor: float = 1.0):
         super().__init__()
         self.weight = weight
+        self.scale_factor = scale_factor
 
     # token_ids: torch.LongTensor (batch_size, sequence_length)
     def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
-        return self.weight[token_ids]
+        return self.weight[token_ids] * self.scale_factor
 
 
 class Embedding(EmbeddingLookup):
