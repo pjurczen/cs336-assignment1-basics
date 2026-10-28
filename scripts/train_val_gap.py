@@ -41,7 +41,7 @@ def train_val_gap(args: argparse.Namespace):
     checkpoint_path = args.checkpoint if args.checkpoint is not None else latest_checkpoint_path(os.path.join(args.run_dir, "checkpoints"))
     print(f"Loading model from {checkpoint_path}...")
     checkpoint: dict[str, any] = torch.load(checkpoint_path, map_location=args.device)
-    upgrade_state_dict(checkpoint["model"])  # older checkpoints: torch.compile key prefix, fused qkv_proj
+    upgrade_state_dict(checkpoint["model"])  # older checkpoints: torch.compile key prefix
     model.load_state_dict(checkpoint["model"])
 
     train_dataset = np.load(file=config.train_data, mmap_mode='r')

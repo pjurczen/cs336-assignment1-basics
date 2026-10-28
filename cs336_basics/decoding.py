@@ -34,7 +34,7 @@ def decoding(args: argparse.Namespace):
     print(f"Loading model from {checkpoint_path}...")
     # The run may have trained on another device (e.g. CUDA), so load straight onto the one we decode on.
     checkpoint: dict[str, any] = torch.load(checkpoint_path, map_location=args.device)
-    # Older checkpoints: torch.compile key prefix, fused qkv_proj (see upgrade_state_dict).
+    # Older checkpoints: torch.compile key prefix (see upgrade_state_dict).
     upgrade_state_dict(checkpoint["model"])
     model.load_state_dict(checkpoint["model"])
 
