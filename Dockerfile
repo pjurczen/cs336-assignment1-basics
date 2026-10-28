@@ -41,4 +41,9 @@ ENV PATH="/usr/local/nvidia/bin:${PATH}" \
     LD_LIBRARY_PATH="/usr/local/nvidia/lib64:/usr/local/nvidia/lib" \
     PYTHONUNBUFFERED=1
 
+# The code version, passed in by scripts/build_image.sh. Declared last: it changes with every commit, and only the
+# layers after it are rebuilt.
+ARG GIT_COMMIT=unknown
+ENV GIT_COMMIT=${GIT_COMMIT}
+
 ENTRYPOINT ["scripts/vertex_entrypoint.sh"]

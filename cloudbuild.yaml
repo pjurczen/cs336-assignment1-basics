@@ -7,9 +7,11 @@ steps:
     entrypoint: bash
     args: [ "-c", "docker pull ${_IMAGE} || (docker pull ${_CACHE_IMAGE} && docker tag ${_CACHE_IMAGE} ${_IMAGE}) || exit 0" ]
   - name: gcr.io/cloud-builders/docker
-    args: [ "build", "-t", "${_IMAGE}", "--cache-from", "${_IMAGE}", "--build-arg", "BUILDKIT_INLINE_CACHE=1", "." ]
+    args: [ "build", "-t", "${_IMAGE}", "-t", "${_VERSION_IMAGE}", "--cache-from", "${_IMAGE}",
+            "--build-arg", "BUILDKIT_INLINE_CACHE=1", "--build-arg", "GIT_COMMIT=${_GIT_COMMIT}", "." ]
 images:
   - "${_IMAGE}"
+  - "${_VERSION_IMAGE}"
 options:
   # Required when the build runs as a user-specified service account.
   logging: CLOUD_LOGGING_ONLY

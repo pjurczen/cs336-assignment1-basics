@@ -35,3 +35,4 @@ class RunConfig(BaseModel):
     checkpoints_iter: int
     checkpoint_src: str | None
     wandb_project: str | None = None  # older runs' config.json predates this field
+    git_commit: str | None = None  # code version the run was trained with; "-dirty" means uncommitted changes

@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import subprocess
 import time
 from datetime import datetime
 
@@ -199,6 +200,18 @@ def log_to_wandb(wandb_run, metrics: dict):
         wandb_run.log({key: value for key, value in metrics.items() if key != "step" and value is not None}, step=metrics["step"])
 
 
+def git_commit() -> str | None:
+    # Inside the training image there is no Git; scripts/build_image.sh bakes the version in as $GIT_COMMIT.
+    if os.environ.get("GIT_COMMIT"):
+        return os.environ["GIT_COMMIT"]
+    try:
+        commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+        dirty = subprocess.run(["git", "diff", "--quiet", "HEAD", "--"]).returncode != 0
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return f"{commit}-dirty" if dirty else commit
+
+
 def int_or_none(value: str) -> int | None:
     # Lets a flag be switched off from the command line, e.g. --model_rope_theta none (no RoPE).
     return None if value.lower() == "none" else int(value)
@@ -239,6 +252,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("--checkpoint_src", type=str, default=None)
     arg_parser.add_argument("--wandb_project", type=str, default=None)
     args = arg_parser.parse_args()
+    args.git_commit = git_commit()  # recorded in config.json and the wandb config
 
     if args.optimizer_warmup_iters is None:
         args.optimizer_warmup_iters = args.iter // 50

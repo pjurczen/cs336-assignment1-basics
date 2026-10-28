@@ -15,6 +15,7 @@ dataset="$1"
 shift
 bucket_dir="/gcs/${GCS_BUCKET}"
 
+echo "Code version: ${GIT_COMMIT:-unknown}"
 ls /usr/local/nvidia/lib64 2>/dev/null | grep -m1 libcuda || echo "no libcuda in /usr/local/nvidia/lib64"
 nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv || echo "nvidia-smi not available"
 uv run python -c "import torch; print(f'torch {torch.__version__}, CUDA {torch.version.cuda}, GPU available: {torch.cuda.is_available()}')"
