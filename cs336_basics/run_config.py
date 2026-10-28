@@ -10,6 +10,7 @@ class RunConfig(BaseModel):
     optimizer_beta1: float
     optimizer_beta2: float
     optimizer_eps: float
+    optimizer_muon: bool = False  # older runs' config.json predates this field; they used AdamW only
     model_vocab_size: int
     model_context_length: int
     model_num_layers: int

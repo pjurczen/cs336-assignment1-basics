@@ -55,18 +55,34 @@ def training(args: argparse.Namespace):
     # Forward passes go through the compiled wrapper; checkpoints use the plain model so keys have no "_orig_mod." prefix.
     compiled_model: torch.nn.Module = torch.compile(model, backend=compile_backend)
 
-    optimizer: torch.optim.Optimizer = AdamWOptimizer(
-        params=model.parameters(),
+    # With --optimizer_muon, the 2D matrices inside the Transformer blocks go to Muon; everything else stays on AdamW.
+    matrix_params = []
+    other_params = []
+    for name, p in model.named_parameters():
+        if args.optimizer_muon and p.ndim == 2 and name.startswith("layers"):
+            matrix_params.append(p)
+        else:
+            other_params.append(p)
+
+    adamw: torch.optim.Optimizer = AdamWOptimizer(
+        params=other_params,
         lr=args.optimizer_lr_min,
         weight_decay=args.optimizer_weight_decay,
         betas=(args.optimizer_beta1, args.optimizer_beta2),
         eps=args.optimizer_eps,
     )
+    muon: torch.optim.Optimizer | None = torch.optim.Muon(
+        params=matrix_params,
+        lr=args.optimizer_lr_min,
+        weight_decay=args.optimizer_weight_decay,
+        adjust_lr_fn="match_rms_adamw"
+    ) if args.optimizer_muon else None
+    optimizers: list[torch.optim.Optimizer] = [adamw] if muon is None else [adamw, muon]
 
     elapsed_time = None
     if args.checkpoint_src:
         print("Loading checkpoint...")
-        iteration, elapsed_time = load_checkpoint(args.checkpoint_src, model, optimizer)
+        iteration, elapsed_time = load_checkpoint(args.checkpoint_src, model, adamw, muon)
 
         print(f"Resuming from iteration {iteration}/{args.iter}")
         iteration += 1
@@ -107,11 +123,11 @@ def training(args: argparse.Namespace):
                 warmup_iters=args.optimizer_warmup_iters,
                 cosine_cycle_iters=args.optimizer_cosine_cycle_iters,
             )
-            for group in optimizer.param_groups:
-                group["lr"] = lr
-
-            optimizer.step()
-            optimizer.zero_grad()
+            for optimizer in optimizers:
+                for group in optimizer.param_groups:
+                    group["lr"] = lr
+                optimizer.step()
+                optimizer.zero_grad()
 
             if (it <= args.optimizer_warmup_iters and it % 10 == 0) or it % args.log_interval == 0 or it == args.iter:
                 synchronize(args.device)
@@ -146,7 +162,7 @@ def training(args: argparse.Namespace):
 
             if it % args.checkpoints_iter == 0 or it == args.iter:
                 t3 = time.perf_counter()
-                save_checkpoint(model, optimizer, it, os.path.join(checkpoints_dir, f"ckpt_{it}.pt"), t3 - t0)
+                save_checkpoint(model, adamw, it, os.path.join(checkpoints_dir, f"ckpt_{it}.pt"), t3 - t0, muon)
                 print(f"{it}/{args.iter} Saving checkpoint...")
 
     if wandb_run is not None:
@@ -227,6 +243,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("--optimizer_beta1", type=float, default=0.9)
     arg_parser.add_argument("--optimizer_beta2", type=float, default=0.999)
     arg_parser.add_argument("--optimizer_eps", type=float, default=1e-8)
+    arg_parser.add_argument("--optimizer_muon", action="store_true", help="Muon for the 2D matrices inside the blocks, AdamW for the rest")
     arg_parser.add_argument("--model_context_length", type=int, default=1024)
     arg_parser.add_argument("--model_num_layers", type=int, default=48)
     arg_parser.add_argument("--model_d_model", type=int, default=1600)
