@@ -106,7 +106,7 @@ def training(args: argparse.Namespace):
             with torch.autocast(device_type=args.device, dtype=torch.bfloat16, enabled=args.bf16):
                 prediction: torch.Tensor = compiled_model(inputs)
 
-                loss: torch.Tensor = cross_entropy(prediction, targets)
+                loss: torch.Tensor = cross_entropy(prediction.float(), targets)
             loss.backward()
 
             l2_norm: torch.Tensor = gradient_clipping(parameters=model.parameters(), max_l2_norm=args.gradient_max_l2_norm, eps=args.gradient_eps)
@@ -146,9 +146,10 @@ def training(args: argparse.Namespace):
             if val_dataset is not None and (it % args.val_interval == 0 or it == args.iter):
                 if it == args.iter:
                     val_loss: float = evaluate(compiled_model, val_dataset, final_val_indices, args.batch_size, args.model_context_length, args.device,
-                                               full_dataset_eval=True)
+                                               bf16=args.bf16, full_dataset_eval=True)
                 elif it % args.val_interval == 0:
-                    val_loss: float = evaluate(compiled_model, val_dataset, iter_val_indices, args.batch_size, args.model_context_length, args.device)
+                    val_loss: float = evaluate(compiled_model, val_dataset, iter_val_indices, args.batch_size, args.model_context_length, args.device,
+                                               bf16=args.bf16)
                 t2 = time.perf_counter()
 
                 metrics: dict = {
@@ -170,30 +171,31 @@ def training(args: argparse.Namespace):
 
 
 def evaluate(model: torch.nn.Module, dataset: npt.NDArray, indices: npt.NDArray, batch_size: int, context_length: int, device: str,
-             full_dataset_eval: bool = False) -> float:
+             bf16: bool = False, full_dataset_eval: bool = False) -> float:
     with torch.no_grad():
-        val_loss_sum: float = 0
-        token_count: int = 0
-        for idx in range(0, len(indices), batch_size):
-            batch = indices[idx: (idx + batch_size)]
-            val_inputs, val_targets = get_batch(dataset=dataset, indices=batch, context_length=context_length, device=device, dtype=torch.long)
+        with torch.autocast(device_type=device, dtype=torch.bfloat16, enabled=bf16):
+            val_loss_sum: float = 0
+            token_count: int = 0
+            for idx in range(0, len(indices), batch_size):
+                batch = indices[idx: (idx + batch_size)]
+                val_inputs, val_targets = get_batch(dataset=dataset, indices=batch, context_length=context_length, device=device, dtype=torch.long)
 
-            val_prediction = model(val_inputs)
-            val_loss_sum += cross_entropy(val_prediction, val_targets).item() * (len(batch) * context_length)
-            token_count += len(batch) * context_length
-
-        if full_dataset_eval:
-            tail_length: int = (len(dataset) - 1) % context_length
-            if tail_length > 0:
-                start = len(dataset) - 1 - tail_length
-                val_inputs, val_targets = get_batch(dataset=dataset, indices=np.array([start]), context_length=tail_length, device=device, dtype=torch.long)
                 val_prediction = model(val_inputs)
-                val_loss_sum += cross_entropy(val_prediction, val_targets).item() * tail_length
-                token_count += tail_length
+                val_loss_sum += cross_entropy(val_prediction, val_targets).item() * (len(batch) * context_length)
+                token_count += len(batch) * context_length
 
-        val_loss = val_loss_sum / token_count
+            if full_dataset_eval:
+                tail_length: int = (len(dataset) - 1) % context_length
+                if tail_length > 0:
+                    start = len(dataset) - 1 - tail_length
+                    val_inputs, val_targets = get_batch(dataset=dataset, indices=np.array([start]), context_length=tail_length, device=device, dtype=torch.long)
+                    val_prediction = model(val_inputs)
+                    val_loss_sum += cross_entropy(val_prediction, val_targets).item() * tail_length
+                    token_count += tail_length
 
-        return val_loss
+            val_loss = val_loss_sum / token_count
+
+            return val_loss
 
 
 def synchronize(device: str):
