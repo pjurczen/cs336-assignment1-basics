@@ -16,7 +16,7 @@ from cs336_basics.checkpoint import load_checkpoint, save_checkpoint
 from cs336_basics.cross_entropy import cross_entropy
 from cs336_basics.data_loading import get_batch, get_random_indices, get_nonoverlapping_indices
 from cs336_basics.gradient import gradient_clipping
-from cs336_basics.learning_rate import cosine_lr_schedule
+from cs336_basics.learning_rate import cosine_lr_schedule, cosine_lr_schedule_by_time
 from cs336_basics.muon_optimizer import MuonOptimizer
 from cs336_basics.transformer_lm import TransformerLM
 
@@ -100,7 +100,14 @@ def training(args: argparse.Namespace):
         if elapsed_time is not None:
             t0 -= elapsed_time
 
+        # With a time budget, training ends when it's used up (minus the reserve for the final validation and checkpoint),
+        # and the cosine follows the elapsed time instead of the step count. --iter is then only an upper limit.
+        budget_seconds = (args.time_budget_minutes - args.time_reserve_minutes) * 60 if args.time_budget_minutes is not None else None
+
         for it in range(iteration, args.iter + 1):
+            elapsed = time.perf_counter() - t0  # no synchronize: the CPU runs only a few steps ahead of the GPU
+            last_step = it == args.iter or (budget_seconds is not None and elapsed >= budget_seconds)
+
             indices: npt.NDArray[int] = get_random_indices(dataset=train_dataset, batch_size=args.batch_size, context_length=args.model_context_length)
             inputs, targets = get_batch(dataset=train_dataset, indices=indices, context_length=args.model_context_length, device=args.device, dtype=torch.long)
             with torch.autocast(device_type=args.device, dtype=torch.bfloat16, enabled=args.bf16):
@@ -111,25 +118,35 @@ def training(args: argparse.Namespace):
 
             l2_norm: torch.Tensor = gradient_clipping(parameters=model.parameters(), max_l2_norm=args.gradient_max_l2_norm, eps=args.gradient_eps)
 
-            if (it <= args.optimizer_warmup_iters and it % 10 == 0) or it % args.log_interval == 0 or it == args.iter:
+            if (it <= args.optimizer_warmup_iters and it % 10 == 0) or it % args.log_interval == 0 or last_step:
                 print(f"{it}/{args.iter} Training loss: {loss.item()}")
-            if it % (10 * args.log_interval) == 0 or it == args.iter:
+            if it % (10 * args.log_interval) == 0 or last_step:
                 print(f"{it}/{args.iter} L2-norm: {l2_norm.item()}")
 
-            lr: float = cosine_lr_schedule(
-                t=it,
-                lr_max=args.optimizer_lr_max,
-                lr_min=args.optimizer_lr_min,
-                warmup_iters=args.optimizer_warmup_iters,
-                cosine_cycle_iters=args.optimizer_cosine_cycle_iters,
-            )
+            if budget_seconds is not None:
+                lr: float = cosine_lr_schedule_by_time(
+                    t=it,
+                    elapsed_seconds=elapsed,
+                    budget_seconds=budget_seconds,
+                    lr_max=args.optimizer_lr_max,
+                    lr_min=args.optimizer_lr_min,
+                    warmup_iters=args.optimizer_warmup_iters,
+                )
+            else:
+                lr: float = cosine_lr_schedule(
+                    t=it,
+                    lr_max=args.optimizer_lr_max,
+                    lr_min=args.optimizer_lr_min,
+                    warmup_iters=args.optimizer_warmup_iters,
+                    cosine_cycle_iters=args.optimizer_cosine_cycle_iters,
+                )
             for optimizer in optimizers:
                 for group in optimizer.param_groups:
                     group["lr"] = lr
                 optimizer.step()
                 optimizer.zero_grad()
 
-            if (it <= args.optimizer_warmup_iters and it % 10 == 0) or it % args.log_interval == 0 or it == args.iter:
+            if (it <= args.optimizer_warmup_iters and it % 10 == 0) or it % args.log_interval == 0 or last_step:
                 synchronize(args.device)
                 t1 = time.perf_counter()
 
@@ -143,8 +160,8 @@ def training(args: argparse.Namespace):
                 metric_file.flush()
                 log_to_wandb(wandb_run, metrics)
 
-            if val_dataset is not None and (it % args.val_interval == 0 or it == args.iter):
-                if it == args.iter:
+            if val_dataset is not None and (it % args.val_interval == 0 or last_step):
+                if last_step:
                     val_loss: float = evaluate(compiled_model, val_dataset, final_val_indices, args.batch_size, args.model_context_length, args.device,
                                                bf16=args.bf16, full_dataset_eval=True)
                 elif it % args.val_interval == 0:
@@ -161,10 +178,13 @@ def training(args: argparse.Namespace):
 
                 print(f"{it}/{args.iter} Validation loss: {val_loss}")
 
-            if it % args.checkpoints_iter == 0 or it == args.iter:
+            if it % args.checkpoints_iter == 0 or last_step:
                 t3 = time.perf_counter()
                 save_checkpoint(model, adamw, it, os.path.join(checkpoints_dir, f"ckpt_{it}.pt"), t3 - t0, muon)
                 print(f"{it}/{args.iter} Saving checkpoint...")
+
+            if last_step:
+                break
 
     if wandb_run is not None:
         wandb_run.finish()
@@ -271,9 +291,15 @@ if __name__ == "__main__":
     arg_parser.add_argument("--checkpoint_src", type=str, default=None)
     arg_parser.add_argument("--wandb_project", type=str, default=None)
     arg_parser.add_argument("--bf16", action="store_true")
+    arg_parser.add_argument("--time_budget_minutes", type=float, default=None,
+                            help="train for this long instead of --iter steps (--iter becomes an upper limit); needs --optimizer_warmup_iters")
+    arg_parser.add_argument("--time_reserve_minutes", type=float, default=0.0,
+                            help="part of the time budget kept free after training, for the final validation pass and checkpoint")
     args = arg_parser.parse_args()
     args.git_commit = git_commit()  # recorded in config.json and the wandb config
 
+    if args.time_budget_minutes is not None and args.optimizer_warmup_iters is None:
+        arg_parser.error("--time_budget_minutes needs an explicit --optimizer_warmup_iters (the step count isn't known in advance)")
     if args.optimizer_warmup_iters is None:
         args.optimizer_warmup_iters = args.iter // 50
     if args.optimizer_cosine_cycle_iters is None:

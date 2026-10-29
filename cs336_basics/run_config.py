@@ -37,3 +37,5 @@ class RunConfig(BaseModel):
     checkpoint_src: str | None
     wandb_project: str | None = None  # older runs' config.json predates this field
     git_commit: str | None = None  # code version the run was trained with; "-dirty" means uncommitted changes
+    time_budget_minutes: float | None = None  # with a budget, training ended on time rather than at iter
+    time_reserve_minutes: float = 0.0
