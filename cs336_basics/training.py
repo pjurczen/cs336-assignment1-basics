@@ -113,7 +113,9 @@ def training(args: argparse.Namespace):
             with torch.autocast(device_type=args.device, dtype=torch.bfloat16, enabled=args.bf16):
                 prediction: torch.Tensor = compiled_model(inputs)
 
-                loss: torch.Tensor = cross_entropy(prediction.float(), targets)
+                # No float32 copy of the logits here: it costs batch × context × vocab × 4 bytes (3.9 GiB at 64 × 512 × 32K).
+                # Autocast still runs exp, log and sum in float32. evaluate() keeps the copy, since it holds no activations.
+                loss: torch.Tensor = cross_entropy(prediction, targets)
             loss.backward()
 
             l2_norm: torch.Tensor = gradient_clipping(parameters=model.parameters(), max_l2_norm=args.gradient_max_l2_norm, eps=args.gradient_eps)
