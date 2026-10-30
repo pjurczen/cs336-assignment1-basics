@@ -19,7 +19,7 @@ PROJECT_DIR = "/root/project"
 image = (
     modal.Image.debian_slim(python_version="3.13")
     .apt_install("gcc", "libc6-dev")  # torch.compile's Triton compiles a small C helper at runtime
-    .uv_sync(extra_options="--no-dev")  # the locked dependencies, Linux torch built for CUDA 12.6
+    .uv_sync(extra_options="--no-dev")  # the locked dependencies, Linux torch built for CUDA 13
     .env({"PYTHONUNBUFFERED": "1", "PYTHONPATH": PROJECT_DIR})
     .add_local_dir("cs336_basics", f"{PROJECT_DIR}/cs336_basics", ignore=["**/__pycache__", "**/.DS_Store", "**/.ipynb_checkpoints"])
 )
@@ -59,10 +59,13 @@ def check():
     import torch
 
     print(f"python {sys.executable}, torch {torch.__version__}, CUDA {torch.version.cuda}")
+    # The GPU architectures this torch has kernels for, readable without a GPU. A B200 needs sm_100.
+    print(f"architectures: {torch._C._cuda_getArchFlags()}")
 
 
 @app.local_entrypoint()
-def main(dataset: str, args: str):
+def main(dataset: str, args: str, gpu: str = GPU):
+    """--gpu B200+ lets Modal pick a B200 or a B300 at the B200 price: shorter queues, but B300 timings aren't B200 ones."""
     import shlex
     import subprocess
 
@@ -70,4 +73,4 @@ def main(dataset: str, args: str):
     git_commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
     if subprocess.run(["git", "diff", "--quiet", "HEAD", "--"]).returncode != 0:
         git_commit += "-dirty"
-    train.remote(dataset, shlex.split(args), git_commit)
+    train.with_options(gpu=gpu).remote(dataset, shlex.split(args), git_commit)
