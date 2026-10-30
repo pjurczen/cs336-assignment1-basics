@@ -21,6 +21,7 @@ class RunConfig(BaseModel):
     model_rope_theta: int | None
     model_tie_embeddings: bool = False  # older runs' config.json predates this field; they were untied
     model_qk_norm: bool = False  # older runs' config.json predates this field; they had no QK-norm
+    model_logit_soft_cap: float | None = None  # older runs' config.json predates this field; they had no cap
     gradient_max_l2_norm: float
     gradient_eps: float
     iter: int

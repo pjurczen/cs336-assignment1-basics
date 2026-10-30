@@ -47,6 +47,7 @@ def training(args: argparse.Namespace):
         dtype=torch.float32,
         tie_embeddings=args.model_tie_embeddings,
         qk_norm=args.model_qk_norm,
+        logit_soft_cap=args.model_logit_soft_cap,
     )
     if args.device.startswith("cuda"):
         # Let float32 matmuls run on TF32 tensor cores (A100 and newer).
@@ -279,6 +280,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("--model_rope_theta", type=int_or_none, default=10000)
     arg_parser.add_argument("--model_tie_embeddings", action="store_true", help="share one matrix between token embeddings and lm_head")
     arg_parser.add_argument("--model_qk_norm", action="store_true", help="RMSNorm on each head's queries and keys, before RoPE")
+    arg_parser.add_argument("--model_logit_soft_cap", type=float, default=None, help="squash output logits to c * tanh(logits / c); unset turns it off")
     arg_parser.add_argument("--gradient_max_l2_norm", type=float, default=1.0)
     arg_parser.add_argument("--gradient_eps", type=float, default=1e-6)
     arg_parser.add_argument("--z_loss_weight", type=float, default=0.0, help="weight of the z-loss added to the training loss; 0 turns it off")
