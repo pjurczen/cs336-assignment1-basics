@@ -4,9 +4,10 @@
 #   scripts/submit_vertex_job.sh a100 owt-32k scripts/train_owt_best.sh --run_name owt-a100-... --time_budget_minutes 60
 # or locally on a Mac:  scripts/train_owt_best.sh --device mps --run_name owt-mps-test --time_budget_minutes 5
 #
-# Model: 8 layers, d_model 768 (3.705) beat 4L/512 (3.795), 8L/512 (3.786), 8L/1024 (3.818) and 12L/768 (3.771)
-#   at 15 minutes. At 60 A100 minutes 8L/768 still won, but narrowly: 3.395 vs 3.406 for 12L/768, and the gap shrank
-#   steadily (0.060 at 15 min -> 0.011), so 12L/768 likely wins with more compute, e.g. 45 B200 minutes.
+# Model: 12 layers, d_model 768. With 45 B200 minutes (the leaderboard budget, reserve 1.5) it beat 8L/768:
+#   3.238 vs 3.270 (29.6K steps at 87 ms vs 43.9K at 59 ms; the B200 is ~3.3-3.6x an A100 here).
+#   On A100s 8L/768 won at 15 minutes (3.705, vs 3.771 for 12L/768; also beat 4L/512 3.795, 8L/512 3.786,
+#   8L/1024 3.818) and narrowly at 60 minutes (3.395 vs 3.406), with the gap shrinking as compute grew.
 # Tied embeddings with sqrt(d_model) scaling, Muon for the block matrices, bf16 autocast: each won on TinyStories.
 # Learning rate 2.8e-3: with weight decay 0.1 it beats 2e-3 (+0.011) and 1.4e-3 (+0.025); 4e-3 is clearly worse.
 # Weight decay 0.1: 3.669 vs 3.705 at 0.01, 3.682 at 0.05, 3.662 at 0.2 (within noise of 0.1). 0.1 rather than 0.2
@@ -19,7 +20,7 @@ uv run cs336_basics/training.py \
   --val_data data/owt-32k/valid_ids.npy \
   --tokenizer_dir tokenizers/owt-32k \
   --model_context_length 512 \
-  --model_num_layers 8 \
+  --model_num_layers 12 \
   --model_d_model 768 \
   --model_num_heads 12 \
   --model_d_ff 2048 \

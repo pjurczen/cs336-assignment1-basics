@@ -39,3 +39,4 @@ class RunConfig(BaseModel):
     git_commit: str | None = None  # code version the run was trained with; "-dirty" means uncommitted changes
     time_budget_minutes: float | None = None  # with a budget, training ended on time rather than at iter
     time_reserve_minutes: float = 0.0
+    z_loss_weight: float = 0.0  # older runs' config.json predates this field; they had no z-loss

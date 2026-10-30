@@ -13,7 +13,7 @@ import wandb
 from cs336_basics.adamw_optimizer import AdamWOptimizer
 from cs336_basics.bpe_tokenizer import read_tokenizer_config
 from cs336_basics.checkpoint import load_checkpoint, save_checkpoint
-from cs336_basics.cross_entropy import cross_entropy
+from cs336_basics.cross_entropy import cross_entropy, cross_entropy_z_loss
 from cs336_basics.data_loading import get_batch, get_random_indices, get_nonoverlapping_indices
 from cs336_basics.gradient import gradient_clipping
 from cs336_basics.learning_rate import cosine_lr_schedule, cosine_lr_schedule_by_time
@@ -115,13 +115,14 @@ def training(args: argparse.Namespace):
 
                 # No float32 copy of the logits here: it costs batch × context × vocab × 4 bytes (3.9 GiB at 64 × 512 × 32K).
                 # Autocast still runs exp, log and sum in float32. evaluate() keeps the copy, since it holds no activations.
-                loss: torch.Tensor = cross_entropy(prediction, targets)
+                cross_entropy_loss, z_loss = cross_entropy_z_loss(prediction, targets, lambda_w=args.z_loss_weight)
+                loss = cross_entropy_loss + z_loss
             loss.backward()
 
             l2_norm: torch.Tensor = gradient_clipping(parameters=model.parameters(), max_l2_norm=args.gradient_max_l2_norm, eps=args.gradient_eps)
 
             if (it <= args.optimizer_warmup_iters and it % 10 == 0) or it % args.log_interval == 0 or last_step:
-                print(f"{it}/{args.iter} Training loss: {loss.item()}")
+                print(f"{it}/{args.iter} Training loss: {cross_entropy_loss.item()}")
             if it % (10 * args.log_interval) == 0 or last_step:
                 print(f"{it}/{args.iter} L2-norm: {l2_norm.item()}")
 
@@ -155,7 +156,7 @@ def training(args: argparse.Namespace):
                 print(f"Elapsed time: {(t1 - t0):.0f} s")
 
                 metrics: dict = {
-                    "step": it, "time": round(t1 - t0, 2), "train_loss": loss.item(), "lr": lr, "grad_norm": l2_norm.item(),
+                    "step": it, "time": round(t1 - t0, 2), "train_loss": cross_entropy_loss.item(), "lr": lr, "grad_norm": l2_norm.item(),
                     "peak_memory_gb": peak_memory_gb(args.device),
                 }
                 metric_file.write(json.dumps(metrics) + "\n")
@@ -278,6 +279,7 @@ if __name__ == "__main__":
     arg_parser.add_argument("--model_tie_embeddings", action="store_true", help="share one matrix between token embeddings and lm_head")
     arg_parser.add_argument("--gradient_max_l2_norm", type=float, default=1.0)
     arg_parser.add_argument("--gradient_eps", type=float, default=1e-6)
+    arg_parser.add_argument("--z_loss_weight", type=float, default=0.0, help="weight of the z-loss added to the training loss; 0 turns it off")
     arg_parser.add_argument("--iter", type=int, default=100)
     arg_parser.add_argument("--device", type=str, default="mps")
     arg_parser.add_argument("--batch_size", type=int, default=32)
