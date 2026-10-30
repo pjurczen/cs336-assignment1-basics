@@ -28,6 +28,7 @@ def decoding(args: argparse.Namespace):
         device=torch.device(args.device),
         dtype=torch.float32,
         tie_embeddings=model_config.model_tie_embeddings,
+        qk_norm=model_config.model_qk_norm,
     )
 
     checkpoint_path = args.checkpoint if args.checkpoint is not None else latest_checkpoint_path(os.path.join(args.run_dir, "checkpoints"))

@@ -13,10 +13,11 @@ class TransformerBlock(torch.nn.Module):
     ln2: RMSNorm
 
     def __init__(self, d_model: int, num_heads: int, d_ff: int | None = None, eps: float = 1e-5, max_seq_len: int | None = None, theta: float | None = None,
-                 device: torch.device | None = None, dtype: torch.dtype | None = None):
+                 device: torch.device | None = None, dtype: torch.dtype | None = None, qk_norm: bool = False):
         super().__init__()
         self.ln1 = RMSNorm(d_model, eps, device=device, dtype=dtype)
-        self.attn = CasualMultiHeadSelfAttentionOptimized(d_model, num_heads, max_seq_len, theta, device=device, dtype=dtype)  # => [FLOPs] 8bnd²
+        self.attn = CasualMultiHeadSelfAttentionOptimized(d_model, num_heads, max_seq_len, theta, qk_norm=qk_norm, eps=eps, device=device,
+                                                          dtype=dtype)  # => [FLOPs] 8bnd²
         self.ln2 = RMSNorm(d_model, eps, device=device, dtype=dtype)
         self.ffn = SwiGLU(d_model, d_ff, device=device, dtype=dtype)
 
