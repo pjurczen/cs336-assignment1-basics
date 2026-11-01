@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Submits a Vertex AI custom training job that runs the training image.
-#   scripts/submit_vertex_job.sh <cpu|a100> <dataset> <command...>
+#   scripts/submit_vertex_job.sh <cpu|a100|a100-80gb> <dataset> <command...>
 #   e.g. scripts/submit_vertex_job.sh a100 tinystories-10k scripts/train_tinystories_base.sh --device cuda --run_name a100-base
 # The job is named after --run_name if the command has one. Results land in gs://<bucket>/runs/.
 # IMAGE_TAG (default: latest) picks an image variant built with the same variable by scripts/build_image.sh.
@@ -23,7 +23,8 @@ wandb_secret="$(tf_output wandb_secret)"
 case "$machine" in
   cpu) machine_spec=("machineType: n1-standard-4") ;;
   a100) machine_spec=("machineType: a2-highgpu-1g" "acceleratorType: NVIDIA_TESLA_A100" "acceleratorCount: 1") ;;
-  *) echo "machine must be cpu or a100, got: $machine" >&2; exit 1 ;;
+  a100-80gb) machine_spec=("machineType: a2-ultragpu-1g" "acceleratorType: NVIDIA_A100_80GB" "acceleratorCount: 1") ;;
+  *) echo "machine must be cpu, a100 or a100-80gb, got: $machine" >&2; exit 1 ;;
 esac
 
 job_args=("$dataset" "$@")

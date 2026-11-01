@@ -20,7 +20,9 @@ image = (
     modal.Image.debian_slim(python_version="3.13")
     .apt_install("gcc", "libc6-dev")  # torch.compile's Triton compiles a small C helper at runtime
     .uv_sync(extra_options="--no-dev")  # the locked dependencies, Linux torch built for CUDA 13
-    .env({"PYTHONUNBUFFERED": "1", "PYTHONPATH": PROJECT_DIR})
+    # expandable_segments lets PyTorch's allocator join scattered free memory, so a large batch doesn't fail on
+    # fragmentation (an A100 run once ran out of memory with 4.2 GiB reserved but unusable).
+    .env({"PYTHONUNBUFFERED": "1", "PYTHONPATH": PROJECT_DIR, "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"})
     .add_local_dir("cs336_basics", f"{PROJECT_DIR}/cs336_basics", ignore=["**/__pycache__", "**/.DS_Store", "**/.ipynb_checkpoints"])
 )
 volume = modal.Volume.from_name("cs336-data", create_if_missing=True)
