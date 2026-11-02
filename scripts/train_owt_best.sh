@@ -5,7 +5,7 @@
 #   scripts/submit_vertex_job.sh a100-80gb owt-32k scripts/train_owt_best.sh --run_name owt-a100-80gb-... \
 #     --batch_size 64 --optimizer_lr_max 4e-3 --optimizer_lr_min 4e-4 --time_budget_minutes 20 --time_reserve_minutes 5
 # or locally on a Mac:  scripts/train_owt_best.sh --device mps --run_name owt-mps-test --batch_size 8 --time_budget_minutes 5
-# Modal B200 runs (scripts/modal_train.py) call training.py directly: pass these flags in --args.
+# Modal B200 runs (scripts/modal_train.py) call train.py directly: pass these flags in --args.
 #
 # B200, 45 minutes: 12L/768 + QK-norm, batch 256, learning rate 8e-3 reached 3.191 (9.2K steps at 275 ms, 1.21B tokens,
 #   peak 145 GB, final validation 84 s). Without QK-norm at batch 64 and 2.8e-3: 3.238 (29.6K steps at 87 ms,
@@ -25,7 +25,7 @@
 # Time reserve 2 minutes: covers the final full validation (84 s), so the whole run stays under 45 minutes.
 set -euo pipefail
 
-uv run cs336_basics/training.py \
+uv run cs336_basics/train.py \
   --train_data data/owt-32k/train_ids.npy \
   --val_data data/owt-32k/valid_ids.npy \
   --tokenizer_dir tokenizers/owt-32k \

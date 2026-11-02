@@ -3,7 +3,7 @@
 #   scripts/train_tinystories_base.sh --run_name tinystories-lr3e-3 --optimizer_lr_max 3e-3
 set -euo pipefail
 
-uv run cs336_basics/training.py \
+uv run cs336_basics/train.py \
   --train_data data/tinystories-10k/train_ids.npy \
   --val_data data/tinystories-10k/valid_ids.npy \
   --tokenizer_dir tokenizers/tinystories-10k \

@@ -46,7 +46,7 @@ up: 8L/768 beat 12L/768 by 0.06 at 15 A100 minutes, by 0.01 at 60, and lost by 0
 
 ## Changes beyond the handout
 
-The handout's architecture and training setup are the default; each change below is a command-line flag of `cs336_basics/training.py` unless noted.
+The handout's architecture and training setup are the default; each change below is a command-line flag of `cs336_basics/train.py` unless noted.
 
 | Change                                                                                                                                                                                  | Flag                                              | Effect                                                                           |
 |-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------|----------------------------------------------------------------------------------|

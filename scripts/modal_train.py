@@ -1,6 +1,6 @@
 """Runs a training command on a Modal B200, the leaderboard's GPU. Run from the repo root:
 
-    uv run modal run --detach scripts/modal_train.py --dataset owt-32k --args "--device cuda --run_name ... <training.py flags>"
+    uv run modal run --detach scripts/modal_train.py --dataset owt-32k --args "--device cuda --run_name ... <train.py flags>"
     uv run modal run scripts/modal_train.py::check     # builds the image and checks the environment, without a GPU
 
 Data and tokenizers live in the Modal volume cs336-data (data/<dataset>/, tokenizers/<name>/), uploaded once with
@@ -13,7 +13,7 @@ so this file must not need torch or the project's modules locally.
 import modal
 
 GPU = "B200"
-TIMEOUT_MINUTES = 60  # hard stop; training.py's --time_budget_minutes should end the run well before
+TIMEOUT_MINUTES = 60  # hard stop; train.py's --time_budget_minutes should end the run well before
 PROJECT_DIR = "/root/project"
 
 image = (
@@ -44,14 +44,14 @@ def train(dataset: str, args: list[str], git_commit: str):
 
     returncode = 1
     try:
-        returncode = subprocess.run([sys.executable, "cs336_basics/training.py", *args], env=dict(os.environ, GIT_COMMIT=git_commit)).returncode
+        returncode = subprocess.run([sys.executable, "cs336_basics/train.py", *args], env=dict(os.environ, GIT_COMMIT=git_commit)).returncode
     finally:
         # Save whatever the run produced, also when it failed.
         if os.path.isdir("runs"):
             shutil.copytree("runs", "/vol/runs", dirs_exist_ok=True)
             volume.commit()
     if returncode != 0:
-        raise RuntimeError(f"training.py exited with code {returncode}")
+        raise RuntimeError(f"train.py exited with code {returncode}")
 
 
 @app.function(timeout=10 * 60)
